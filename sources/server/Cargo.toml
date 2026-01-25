@@ -4,3 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tokio = { workspace = true }
+axum = "0.8.8"
+http = "1.0.0"
+api = { path = "../api" }
+chrono = { workspace = true }
