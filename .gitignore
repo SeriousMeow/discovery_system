@@ -1,2 +1,7 @@
+# Rust output
 sources/debug
 sources/target
+
+# direnv
+.envrc
+.direnv
