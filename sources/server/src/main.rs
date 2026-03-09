@@ -1,49 +1,56 @@
-use axum::extract::{Json, State};
-use axum::routing::post;
-use axum::{Router, http::StatusCode, serve};
+use axum::serve;
 
-use server::state::AppState;
+mod api;
+use api::*;
 
-type Response<T> = Result<Json<T>, StatusCode>;
+pub mod handlers;
 
-async fn register(
-    State(state): State<AppState>,
-    Json(request): Json<api::register::Request>,
-) -> Response<api::register::Response> {
-    Ok(Json(
-        server::handlers::register::handle(request, state).await?,
-    ))
+pub mod state;
+use state::AppState;
+
+#[derive(Clone)]
+struct ApiImpl {
+    state: AppState,
 }
 
-async fn queue_post(
-    State(state): State<AppState>,
-    Json(request): Json<api::queue::post::Request>,
-) -> Response<()> {
-    Ok(Json(
-        server::handlers::queue_post::handle(request, state).await?,
-    ))
+impl ApiImpl {
+    fn new() -> Self {
+        Self {
+            state: AppState::new(),
+        }
+    }
 }
 
-async fn queue_get(
-    State(state): State<AppState>,
-    Json(request): Json<api::queue::get::Request>,
-) -> Response<api::queue::get::Response> {
-    Ok(Json(
-        server::handlers::queue_get::handle(request, state).await?,
-    ))
+impl ApiServer for ApiImpl {
+    async fn queue_get(
+        &self,
+        request: QueueGetRequestParams,
+    ) -> anyhow::Result<QueueGetResponseEnum> {
+        handlers::queue_get::handle(&self.state, request).await
+    }
+
+    async fn queue_post(
+        &self,
+        request: QueuePostRequestParams,
+    ) -> anyhow::Result<QueuePostResponse> {
+        handlers::queue_post::handle(&self.state, request).await
+    }
+
+    async fn register(
+        &self,
+        request: RegisterRequestParams,
+    ) -> anyhow::Result<RegisterResponseEnum> {
+        handlers::register::handle(&self.state, request).await
+    }
 }
 
 #[tokio::main]
 async fn main() {
-    let state = AppState::new();
+    let api_impl = ApiImpl::new();
 
-    let app = Router::new()
-        .route(api::register::ENDPOINT, post(register))
-        .route(api::queue::get::ENDPOINT, post(queue_get))
-        .route(api::queue::post::ENDPOINT, post(queue_post))
-        .with_state(state);
+    let app = router(api_impl);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
 
-    serve(listener, app).await.unwrap();
+    serve(listener, app).await.expect("Server error");
 }

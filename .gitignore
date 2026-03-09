@@ -2,6 +2,9 @@
 sources/debug
 sources/target
 
+# OpenAPI output
+sources/server/src/api/api_impl
+
 # direnv
 .envrc
 .direnv

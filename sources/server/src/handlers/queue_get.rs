@@ -1,22 +1,22 @@
+use crate::api::*;
 use crate::state::AppState;
-use api::queue::get::{Request, Response};
-use http::StatusCode;
+use anyhow::Result;
 
-pub async fn handle(request: Request, state: AppState) -> Result<Response, StatusCode> {
-    let id = request.credentials.id;
+pub async fn handle(
+    state: &AppState,
+    request: QueueGetRequestParams,
+) -> Result<QueueGetResponseEnum> {
+    let id = request.body.credentials.id;
 
-    let mut guard = state
-        .storage
-        .lock()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
     let value = match storage.get(&id) {
         Some(value) => value,
-        None => return Err(StatusCode::NOT_FOUND),
+        None => return Ok(QueueGetResponseEnum::NotFound),
     };
 
-    Ok(Response {
+    Ok(QueueGetResponseEnum::Ok(QueueGetResponse {
         data: vec![value.clone()],
-    })
+    }))
 }

@@ -1,0 +1,138 @@
+openapi: 3.1.0
+info:
+  title: Discovery System
+  version: 1.0.0
+  description: |
+    API for discovery system
+
+components:
+  schemas:
+    Id:
+      type: string
+
+    Timestamp:
+      type: string
+      format: date-time
+
+    Credentials:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+
+    DataItem:
+      type: string
+          
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - credentials
+      properties:
+        credentials:
+          $ref: "#/components/schemas/Credentials"
+
+    RegisterResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - reserved_until
+      properties:
+        reserved_until:
+          $ref: "#/components/schemas/Timestamp"
+
+    QueuePostRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - credentials
+        - recipient
+        - data
+      properties:
+        credentials:
+          $ref: "#/components/schemas/Credentials"
+        recipient:
+          $ref: "#/components/schemas/Id"
+        data:
+          $ref: "#/components/schemas/DataItem"
+
+    QueueGetRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - credentials
+      properties:
+        credentials:
+          $ref: "#/components/schemas/Credentials"
+
+    QueueGetResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataItem"
+
+paths:
+  /register:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        200:
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterResponse"
+        401:
+          description: Unauthorized
+
+  /queue/post:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueuePostRequest"
+
+      responses:
+        204:
+          description: Ok
+        401:
+          description: Unauthorized
+        404:
+          description: Not found
+
+  /queue/get:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueueGetRequest"
+
+      responses:
+        200:
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueGetResponse"
+        401:
+          description: Unauthorized
+        404:
+          description: Not found
+

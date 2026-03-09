@@ -1,20 +1,20 @@
+use crate::api::*;
 use crate::state::AppState;
-use api::register::{Request, Response};
+use anyhow::Result;
 use chrono::Utc;
-use http::StatusCode;
 
-pub async fn handle(request: Request, state: AppState) -> Result<Response, StatusCode> {
-    let id = request.credentials.id;
+pub async fn handle(
+    state: &AppState,
+    request: RegisterRequestParams,
+) -> Result<RegisterResponseEnum> {
+    let id = request.body.credentials.id;
 
-    let mut guard = state
-        .storage
-        .lock()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
     storage.touch(&id);
 
-    Ok(Response {
+    Ok(RegisterResponseEnum::Ok(RegisterResponse {
         reserved_until: Utc::now(),
-    })
+    }))
 }

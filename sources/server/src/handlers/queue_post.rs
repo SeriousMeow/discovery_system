@@ -1,17 +1,17 @@
+use crate::api::*;
 use crate::state::AppState;
-use api::queue::post::Request;
-use http::StatusCode;
+use anyhow::Result;
 
-pub async fn handle(request: Request, state: AppState) -> Result<(), StatusCode> {
-    let recipient = request.recipient;
-    let value = request.data;
+pub async fn handle(
+    state: &AppState,
+    request: QueuePostRequestParams,
+) -> Result<QueuePostResponse> {
+    let recipient = request.body.recipient;
+    let value = request.body.data;
 
-    let mut guard = state
-        .storage
-        .lock()
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
     storage.insert(&recipient, value);
-    Ok(())
+    Ok(QueuePostResponse::NotFound)
 }
