@@ -6,9 +6,9 @@ edition = "2024"
 [dependencies]
 tokio = { workspace = true }
 axum = "0.8.8"
-http = "1.0.0"
+http = { workspace = true }
 chrono = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
-validator = { version = "0.20", features = ["derive"] }
-oas3-gen-support = "0.25"
+validator = { workspace = true }
+oas3-gen-support = { workspace = true }

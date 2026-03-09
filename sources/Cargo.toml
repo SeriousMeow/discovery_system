@@ -8,3 +8,6 @@ serde_json = "1.0.148"
 serde = { version = "1.0.228", features = ["derive"] }
 chrono = { version = "0.4.43", features = ["serde"] }
 anyhow = "1.0.102"
+validator = { version = "0.20", features = ["derive"] }
+oas3-gen-support = "0.25"
+http = "1.0.0"

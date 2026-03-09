@@ -4,6 +4,7 @@ sources/target
 
 # OpenAPI output
 sources/server/src/api/api_impl
+sources/client/src/api
 
 # direnv
 .envrc
