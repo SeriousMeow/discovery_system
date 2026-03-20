@@ -1,92 +1,162 @@
+use iroh::EndpointId;
 use iroh::endpoint::{RecvStream, SendStream};
-use iroh_tickets::endpoint::EndpointTicket;
-use tokio::io::{AsyncRead, AsyncWrite};
+use std::time::Duration;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::oneshot;
 
+use crate::handle::error::{
+    AcceptConnectionError, AddDiscoveryServerError, GoOnlineError, RemoveDiscoveryServerError,
+};
 use crate::worker::commands;
 
 #[derive(Clone)]
-pub struct EmptyHandle {
-    commands_sender: Sender<commands::Command>,
-}
-
 pub struct Handle {
-    commands_sender: Sender<commands::Command>,
-    data_sender: SendStream,
-    data_reciever: RecvStream,
+    commands_sender: Sender<commands::WorkerCommand>,
 }
 
-impl EmptyHandle {
-    pub(crate) fn new(commands_sender: Sender<commands::Command>) -> Self {
+impl Handle {
+    pub(crate) fn new(commands_sender: Sender<commands::WorkerCommand>) -> Self {
         Self {
             commands_sender: commands_sender,
         }
     }
 
-    pub async fn connect(self, ticket: EndpointTicket) -> Handle {
-        use commands::connect::*;
+    pub async fn connect(
+        &self,
+        peer_id: EndpointId,
+        peer_discovery_servers: Vec<String>,
+        timeout: Duration,
+    ) -> Result<(), error::ConnectError> {
+        use crate::worker::commands::connect::*;
 
-        let (tx, rx) = oneshot::channel();
-
-        let body: Body = Body { ticket: ticket };
-
-        let command = Command::new(body, tx);
+        let request = Request {
+            peer_id,
+            peer_discovery_servers,
+            timeout,
+        };
+        let (command, rx) = Command::new(request);
 
         self.commands_sender.send(command.into()).await.unwrap();
 
-        let response = rx.await.unwrap();
+        rx.await.unwrap()
+    }
 
-        Handle {
-            commands_sender: self.commands_sender,
-            data_sender: response.tx,
-            data_reciever: response.rx,
-        }
+    pub async fn go_online(&self) -> Result<(), GoOnlineError> {
+        use crate::worker::commands::go_online::*;
+
+        let (command, rx) = Command::new(());
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn accept_connection(
+        &self,
+        peer_id: EndpointId,
+        timeout: Duration,
+    ) -> Result<(), AcceptConnectionError> {
+        use crate::worker::commands::accept_connection::*;
+
+        let request = Request { peer_id, timeout };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn open_stream(
+        &self,
+        peer_id: EndpointId,
+    ) -> Result<(SendStream, RecvStream), error::OpenStreamError> {
+        use crate::worker::commands::open_stream::*;
+
+        let request = Request { peer_id };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn accept_stream(
+        &self,
+        peer_id: EndpointId,
+    ) -> Result<(SendStream, RecvStream), error::AcceptStreamError> {
+        use crate::worker::commands::accept_stream::*;
+
+        let request = Request { peer_id };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn is_online(&self) -> bool {
+        use crate::worker::commands::is_online::*;
+
+        let (command, rx) = Command::new(());
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn add_discovery_server(&self, url: String) -> Result<(), AddDiscoveryServerError> {
+        use crate::worker::commands::add_discovery_server::*;
+
+        let request = Request { url };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn remove_discovery_server(
+        &self,
+        url: String,
+    ) -> Result<(), RemoveDiscoveryServerError> {
+        use crate::worker::commands::remove_discovery_server::*;
+
+        let request = Request { url };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn list_discovery_servers(&self) -> Vec<String> {
+        use crate::worker::commands::list_discovery_servers::*;
+
+        let (command, rx) = Command::new(());
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn list_incoming_connections(&self) -> Vec<EndpointId> {
+        use crate::worker::commands::list_incoming_connections::*;
+
+        let (command, rx) = Command::new(Request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
     }
 }
 
-impl Handle {
-    pub fn clone_empty(&self) -> EmptyHandle {
-        EmptyHandle {
-            commands_sender: self.commands_sender.clone(),
-        }
-    }
-}
+pub mod error {
+    use crate::worker::commands;
 
-impl AsyncRead for Handle {
-    fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        AsyncRead::poll_read(
-            std::pin::Pin::new(&mut self.get_mut().data_reciever),
-            cx,
-            buf,
-        )
-    }
-}
-
-impl AsyncWrite for Handle {
-    fn poll_write(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-        buf: &[u8],
-    ) -> std::task::Poll<std::io::Result<usize>> {
-        AsyncWrite::poll_write(std::pin::Pin::new(&mut self.get_mut().data_sender), cx, buf)
-    }
-
-    fn poll_flush(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        AsyncWrite::poll_flush(std::pin::Pin::new(&mut self.get_mut().data_sender), cx)
-    }
-
-    fn poll_shutdown(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        AsyncWrite::poll_shutdown(std::pin::Pin::new(&mut self.get_mut().data_sender), cx)
-    }
+    pub type ConnectError = commands::connect::Error;
+    pub type AcceptConnectionError = commands::accept_connection::Error;
+    pub type AcceptStreamError = commands::accept_stream::Error;
+    pub type OpenStreamError = commands::open_stream::Error;
+    pub type GoOnlineError = commands::go_online::Error;
+    pub type AddDiscoveryServerError = commands::add_discovery_server::Error;
+    pub type RemoveDiscoveryServerError = commands::remove_discovery_server::Error;
 }
