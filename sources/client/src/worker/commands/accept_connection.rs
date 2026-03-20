@@ -44,7 +44,7 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
 
         if self
             .connections
-            .lock()
+            .read()
             .unwrap()
             .contains_key(&request.peer_id)
         {
@@ -74,7 +74,7 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             let response = match connect_result {
                 Ok(Ok(connection)) => {
                     let peer_id = connection.remote_id();
-                    let mut guard = connections.lock().unwrap();
+                    let mut guard = connections.write().unwrap();
                     guard.insert(peer_id, connection);
                     Ok(())
                 }

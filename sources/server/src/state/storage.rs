@@ -22,7 +22,7 @@ impl Storage {
         self.storage.insert(key.clone(), value);
     }
 
-    pub fn get(&mut self, key: &KeyType) -> Option<&ValueType> {
+    pub fn get(&self, key: &KeyType) -> Option<&ValueType> {
         self.storage.get(key)
     }
 }

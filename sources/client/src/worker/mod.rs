@@ -4,7 +4,7 @@ use iroh::endpoint::Connection;
 use iroh_tickets::endpoint::EndpointTicket;
 use std::collections::HashMap;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use tokio::select;
 use tokio::sync::mpsc::Receiver;
@@ -25,8 +25,8 @@ use commands::WorkerCommand;
 pub struct Worker {
     commands_receiver: Receiver<WorkerCommand>,
     discovery_module: Option<discovery_module::DiscoveryModule>,
-    connections: Arc<Mutex<HashMap<EndpointId, Connection>>>,
-    pending_connections: Arc<Mutex<HashMap<EndpointId, discovery_module::PendingConnection>>>,
+    connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
+    pending_connections: Arc<RwLock<HashMap<EndpointId, discovery_module::PendingConnection>>>,
     pending_incoming_connections: HashMap<EndpointId, EndpointTicket>,
     config: Config,
 }
@@ -55,8 +55,8 @@ impl Worker {
         Self {
             commands_receiver,
             discovery_module: None,
-            connections: Arc::new(Mutex::new(HashMap::new())),
-            pending_connections: Arc::new(Mutex::new(HashMap::new())),
+            connections: Arc::new(RwLock::new(HashMap::new())),
+            pending_connections: Arc::new(RwLock::new(HashMap::new())),
             pending_incoming_connections: HashMap::new(),
             config,
         }
@@ -143,7 +143,7 @@ impl Worker {
 
             let peer_id = ticket.endpoint_addr().id;
 
-            let connections = self.connections.lock().unwrap();
+            let connections = self.connections.read().unwrap();
             if connections.contains_key(&peer_id) {
                 continue;
             }

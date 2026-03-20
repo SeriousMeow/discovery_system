@@ -8,8 +8,8 @@ pub async fn handle(
 ) -> Result<QueueGetResponseEnum> {
     let id = request.body.credentials.id;
 
-    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
-    let storage = &mut *guard;
+    let guard = state.storage.read().map_err(|_| anyhow::anyhow!(""))?;
+    let storage = &*guard;
 
     let value = match storage.get(&id) {
         Some(value) => value,

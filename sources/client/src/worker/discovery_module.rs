@@ -6,7 +6,7 @@ use iroh::protocol::{ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointId};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 use tokio::sync::oneshot;
 
 pub const ALPN: &[u8] = b"discovery_system/1";
@@ -23,14 +23,14 @@ pub struct PendingConnection {
 pub struct DiscoveryModule {
     pub endpoint: Endpoint,
     pub discovery_servers: Vec<DiscoveryServer>,
-    pub pending_connections: Arc<Mutex<HashMap<EndpointId, PendingConnection>>>,
+    pub pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
     _router: Router,
 }
 
 impl DiscoveryModule {
     pub async fn new(
-        pending_connections: Arc<Mutex<HashMap<EndpointId, PendingConnection>>>,
-        connections: Arc<Mutex<HashMap<EndpointId, Connection>>>,
+        pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
+        connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
     ) -> Result<Self> {
         let endpoint = Endpoint::bind().await?;
         let handler = Handler::new(pending_connections.clone(), connections);
@@ -52,13 +52,13 @@ impl DiscoveryModule {
         id: EndpointId,
         callback: oneshot::Sender<Result<Connection, ConnectionError>>,
     ) {
-        let mut guard = self.pending_connections.lock().unwrap();
+        let mut guard = self.pending_connections.write().unwrap();
         let pending_connections = &mut *guard;
         pending_connections.insert(id, PendingConnection { callback });
     }
 
     pub fn has_pending_connection(&self, id: EndpointId) -> bool {
-        let guard = self.pending_connections.lock().unwrap();
+        let guard = self.pending_connections.read().unwrap();
         guard.contains_key(&id)
     }
 
@@ -87,8 +87,8 @@ impl DiscoveryModule {
 }
 
 struct Handler {
-    pending_connections: Arc<Mutex<HashMap<EndpointId, PendingConnection>>>,
-    connections: Arc<Mutex<HashMap<EndpointId, Connection>>>,
+    pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
+    connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
 }
 
 impl fmt::Debug for Handler {
@@ -99,8 +99,8 @@ impl fmt::Debug for Handler {
 
 impl Handler {
     fn new(
-        pending_connections: Arc<Mutex<HashMap<EndpointId, PendingConnection>>>,
-        connections: Arc<Mutex<HashMap<EndpointId, Connection>>>,
+        pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
+        connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
     ) -> Self {
         Self {
             pending_connections,
@@ -114,7 +114,7 @@ impl ProtocolHandler for Handler {
         let peer_id = connection.remote_id();
 
         let already_connected = {
-            let guard = self.connections.lock().unwrap();
+            let guard = self.connections.read().unwrap();
             guard.contains_key(&peer_id)
         };
 
@@ -123,7 +123,7 @@ impl ProtocolHandler for Handler {
             return Ok(());
         }
 
-        let pending = match self.pending_connections.lock().unwrap().remove(&peer_id) {
+        let pending = match self.pending_connections.write().unwrap().remove(&peer_id) {
             Some(pending) => pending,
             None => {
                 connection.close(VarInt::from_u32(400), b"Not expected");
@@ -133,7 +133,10 @@ impl ProtocolHandler for Handler {
 
         let _ = pending.callback.send(Ok(connection.clone()));
 
-        self.connections.lock().unwrap().insert(peer_id, connection);
+        self.connections
+            .write()
+            .unwrap()
+            .insert(peer_id, connection);
         Ok(())
     }
 }

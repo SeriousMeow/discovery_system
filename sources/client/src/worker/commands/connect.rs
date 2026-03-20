@@ -45,7 +45,7 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
         let peer_id = command.request.peer_id;
         let pending_timeout = command.request.timeout;
 
-        if self.connections.lock().unwrap().contains_key(&peer_id) {
+        if self.connections.read().unwrap().contains_key(&peer_id) {
             let _ = response_tx.send(Err(Error::AlreadyConnected));
             return;
         }
@@ -91,7 +91,7 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
                 Ok(Ok(Err(e))) => Err(Error::ConnectionError(e)),
                 Ok(Err(_)) => Err(Error::Timeout),
                 Err(_) => {
-                    let mut guard = pending_connections.lock().unwrap();
+                    let mut guard = pending_connections.write().unwrap();
                     if guard.remove(&peer_id).is_some() {
                         Err(Error::Timeout)
                     } else {

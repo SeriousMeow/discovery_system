@@ -9,7 +9,7 @@ pub async fn handle(
 ) -> Result<RegisterResponseEnum> {
     let id = request.body.credentials.id;
 
-    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
+    let mut guard = state.storage.write().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
     storage.touch(&id);

@@ -9,7 +9,7 @@ pub async fn handle(
     let recipient = request.body.recipient;
     let value = request.body.data;
 
-    let mut guard = state.storage.lock().map_err(|_| anyhow::anyhow!(""))?;
+    let mut guard = state.storage.write().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
     storage.insert(&recipient, value);

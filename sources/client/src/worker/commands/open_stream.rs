@@ -33,7 +33,7 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
 
         let connection = self
             .connections
-            .lock()
+            .read()
             .unwrap()
             .get(&request.peer_id)
             .cloned();
