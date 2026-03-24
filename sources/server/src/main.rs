@@ -1,3 +1,4 @@
+use anyhow::Result;
 use axum::serve;
 
 mod api;
@@ -7,6 +8,8 @@ pub mod handlers;
 
 pub mod state;
 use state::AppState;
+
+pub mod broadcast;
 
 #[derive(Clone)]
 struct ApiImpl {
@@ -45,12 +48,23 @@ impl ApiServer for ApiImpl {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
+    let config = broadcast::config::Config::default();
+    let (_, _, worker) = broadcast::BroadcastWorker::new(config).await?;
+
+    tokio::spawn(async move {
+        worker.run().await?;
+
+        Ok::<_, anyhow::Error>(())
+    });
+
     let api_impl = ApiImpl::new();
 
     let app = router(api_impl);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
 
     serve(listener, app).await.expect("Server error");
+
+    Ok(())
 }
