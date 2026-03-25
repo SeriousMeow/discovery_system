@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
 use anyhow::Result;
 use axum::serve;
 
@@ -50,7 +52,8 @@ impl ApiServer for ApiImpl {
 #[tokio::main]
 async fn main() -> Result<()> {
     let config = broadcast::config::Config::default();
-    let (_, _, worker) = broadcast::BroadcastWorker::new(config).await?;
+    let contact_node = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000));
+    let (_, _, worker) = broadcast::BroadcastWorker::new(config, contact_node).await?;
 
     tokio::spawn(async move {
         worker.run().await?;

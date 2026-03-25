@@ -1,22 +1,26 @@
 use derive_more::From;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::broadcast::BroadcastSystem;
 use crate::broadcast::NodeId;
 
 #[derive(From, Clone)]
 pub enum Message {
     Membership(hyparview::message::ProtocolMessage<NodeId>),
+    Broadcast(plumtree::message::ProtocolMessage<BroadcastSystem>),
 }
 
 #[derive(Serialize, Deserialize)]
 enum MessageMirror {
     Membership(membership::mirror::ProtocolMessage),
+    Broadcast(broadcast::mirror::ProtocolMessage),
 }
 
 impl From<Message> for MessageMirror {
     fn from(value: Message) -> Self {
         match value {
             Message::Membership(value) => Self::Membership(value.into()),
+            Message::Broadcast(value) => Self::Broadcast(value.into()),
         }
     }
 }
@@ -25,6 +29,7 @@ impl From<MessageMirror> for Message {
     fn from(value: MessageMirror) -> Self {
         match value {
             MessageMirror::Membership(value) => Self::Membership(value.into()),
+            MessageMirror::Broadcast(value) => Self::Broadcast(value.into()),
         }
     }
 }
@@ -259,6 +264,173 @@ mod membership {
                 mirror::ProtocolMessage::Shuffle(x) => Self::Shuffle(x.into()),
                 mirror::ProtocolMessage::ShuffleReply(x) => Self::ShuffleReply(x.into()),
                 mirror::ProtocolMessage::Disconnect(x) => Self::Disconnect(x.into()),
+            }
+        }
+    }
+}
+
+pub mod broadcast {
+    use crate::broadcast::BroadcastSystem;
+
+    pub mod mirror {
+        use serde::{Deserialize, Serialize};
+
+        use crate::broadcast::MessageId;
+        use crate::broadcast::NodeId;
+        use crate::broadcast::Payload;
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct Message {
+            pub id: MessageId,
+            pub payload: Payload,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct GossipMessage {
+            pub sender: NodeId,
+            pub message: Message,
+            pub round: u16,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct IhaveMessage {
+            pub sender: NodeId,
+            pub message_id: MessageId,
+            pub round: u16,
+            pub realtime: bool,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct GraftMessage {
+            pub sender: NodeId,
+            pub message_id: Option<MessageId>,
+            pub round: u16,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub struct PruneMessage {
+            pub sender: NodeId,
+        }
+
+        #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+        pub enum ProtocolMessage {
+            Gossip(GossipMessage),
+            Ihave(IhaveMessage),
+            Graft(GraftMessage),
+            Prune(PruneMessage),
+        }
+    }
+
+    impl From<plumtree::message::Message<BroadcastSystem>> for mirror::Message {
+        fn from(m: plumtree::message::Message<BroadcastSystem>) -> Self {
+            Self {
+                id: m.id,
+                payload: m.payload,
+            }
+        }
+    }
+
+    impl From<mirror::Message> for plumtree::message::Message<BroadcastSystem> {
+        fn from(m: mirror::Message) -> Self {
+            Self {
+                id: m.id,
+                payload: m.payload,
+            }
+        }
+    }
+
+    impl From<plumtree::message::GossipMessage<BroadcastSystem>> for mirror::GossipMessage {
+        fn from(m: plumtree::message::GossipMessage<BroadcastSystem>) -> Self {
+            Self {
+                sender: m.sender,
+                message: m.message.into(),
+                round: m.round,
+            }
+        }
+    }
+
+    impl From<mirror::GossipMessage> for plumtree::message::GossipMessage<BroadcastSystem> {
+        fn from(m: mirror::GossipMessage) -> Self {
+            Self {
+                sender: m.sender,
+                message: m.message.into(),
+                round: m.round,
+            }
+        }
+    }
+
+    impl From<plumtree::message::IhaveMessage<BroadcastSystem>> for mirror::IhaveMessage {
+        fn from(m: plumtree::message::IhaveMessage<BroadcastSystem>) -> Self {
+            Self {
+                sender: m.sender,
+                message_id: m.message_id,
+                round: m.round,
+                realtime: m.realtime,
+            }
+        }
+    }
+
+    impl From<mirror::IhaveMessage> for plumtree::message::IhaveMessage<BroadcastSystem> {
+        fn from(m: mirror::IhaveMessage) -> Self {
+            Self {
+                sender: m.sender,
+                message_id: m.message_id,
+                round: m.round,
+                realtime: m.realtime,
+            }
+        }
+    }
+
+    impl From<plumtree::message::GraftMessage<BroadcastSystem>> for mirror::GraftMessage {
+        fn from(m: plumtree::message::GraftMessage<BroadcastSystem>) -> Self {
+            Self {
+                sender: m.sender,
+                message_id: m.message_id,
+                round: m.round,
+            }
+        }
+    }
+
+    impl From<mirror::GraftMessage> for plumtree::message::GraftMessage<BroadcastSystem> {
+        fn from(m: mirror::GraftMessage) -> Self {
+            Self {
+                sender: m.sender,
+                message_id: m.message_id,
+                round: m.round,
+            }
+        }
+    }
+
+    impl From<plumtree::message::PruneMessage<BroadcastSystem>> for mirror::PruneMessage {
+        fn from(m: plumtree::message::PruneMessage<BroadcastSystem>) -> Self {
+            Self { sender: m.sender }
+        }
+    }
+
+    impl From<mirror::PruneMessage> for plumtree::message::PruneMessage<BroadcastSystem> {
+        fn from(m: mirror::PruneMessage) -> Self {
+            Self { sender: m.sender }
+        }
+    }
+
+    impl From<plumtree::message::ProtocolMessage<BroadcastSystem>> for mirror::ProtocolMessage {
+        fn from(m: plumtree::message::ProtocolMessage<BroadcastSystem>) -> Self {
+            match m {
+                plumtree::message::ProtocolMessage::Gossip(x) => Self::Gossip(x.into()),
+                plumtree::message::ProtocolMessage::Ihave(x) => Self::Ihave(x.into()),
+                plumtree::message::ProtocolMessage::Graft(x) => Self::Graft(x.into()),
+                plumtree::message::ProtocolMessage::Prune(x) => Self::Prune(x.into()),
+            }
+        }
+    }
+
+    impl From<mirror::ProtocolMessage> for plumtree::message::ProtocolMessage<BroadcastSystem> {
+        fn from(m: mirror::ProtocolMessage) -> Self {
+            match m {
+                mirror::ProtocolMessage::Gossip(x) => Self::Gossip(x.into()),
+                mirror::ProtocolMessage::Ihave(x) => Self::Ihave(x.into()),
+                mirror::ProtocolMessage::Graft(x) => Self::Graft(x.into()),
+                mirror::ProtocolMessage::Prune(x) => Self::Prune(x.into()),
             }
         }
     }

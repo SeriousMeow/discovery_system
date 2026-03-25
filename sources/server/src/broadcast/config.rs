@@ -16,7 +16,10 @@ pub struct Config {
     pub internal_messages_buffer_size: usize,
     #[default(None)]
     pub membership_options: Option<hyparview::NodeOptions>,
+    #[default(None)]
+    pub broadcast_option: Option<plumtree::NodeOptions>,
     pub membership_intervals: MembershipIntervals,
+    pub broadcast_intervals: BroadcastIntervals,
 }
 
 #[derive(SmartDefault)]
@@ -26,4 +29,10 @@ pub struct MembershipIntervals {
     pub sync_active: Duration,
     pub poll: Duration,
     pub cleanup: Duration,
+}
+
+#[derive(SmartDefault)]
+pub struct BroadcastIntervals {
+    pub poll: Duration,
+    pub tick: Duration,
 }

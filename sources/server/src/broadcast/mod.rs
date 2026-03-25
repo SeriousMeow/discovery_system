@@ -1,14 +1,16 @@
 use std::net::SocketAddr;
 
 use anyhow::Result;
-use hyparview::{self, Action};
 use rand::FromEntropy;
 use rand::rngs::StdRng;
+use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use tokio::select;
 use tokio::sync::mpsc;
 use tokio::time::Duration;
+use tokio::time::Instant;
 use tokio::time::Interval;
+use uuid::Uuid;
 
 pub mod config;
 
@@ -19,10 +21,22 @@ use crate::broadcast::message::Message;
 
 mod message;
 
-pub type MessageSender = mpsc::Sender<Message>;
-pub type MessageReceiver = mpsc::Receiver<Message>;
+pub type MessageSender = mpsc::Sender<Payload>;
+pub type MessageReceiver = mpsc::Receiver<Payload>;
 
 pub type NodeId = SocketAddr;
+pub type MessageId = Uuid;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Payload;
+
+pub struct BroadcastSystem;
+
+impl plumtree::System for BroadcastSystem {
+    type NodeId = NodeId;
+    type MessageId = MessageId;
+    type MessagePayload = Payload;
+}
 
 pub struct BroadcastWorker {
     to_broadcast: MessageReceiver,
@@ -30,10 +44,15 @@ pub struct BroadcastWorker {
     connections_manager: ConnectionsManager,
     membership_node: hyparview::Node<NodeId, StdRng>,
     membership_intervals_config: config::MembershipIntervals,
+    broadcast_node: plumtree::Node<BroadcastSystem>,
+    broadcast_intervals_config: config::BroadcastIntervals,
 }
 
 impl BroadcastWorker {
-    pub async fn new(config: config::Config) -> Result<(MessageSender, MessageReceiver, Self)> {
+    pub async fn new(
+        config: config::Config,
+        contact_node: NodeId,
+    ) -> Result<(MessageSender, MessageReceiver, Self)> {
         let (in_tx, in_rx) = mpsc::channel(config.broadcast_buffer_size);
 
         let (out_tx, out_rx) = mpsc::channel(config.new_messages_buffer_size);
@@ -41,9 +60,16 @@ impl BroadcastWorker {
         let id = config.listening_address;
         let listener = TcpListener::bind(id).await?;
 
-        let membership_node = match config.membership_options {
+        let mut membership_node = match config.membership_options {
             Some(options) => hyparview::Node::with_options(id, StdRng::from_entropy(), options),
             None => hyparview::Node::new(id, StdRng::from_entropy()),
+        };
+
+        membership_node.join(contact_node);
+
+        let broadcast_node = match config.broadcast_option {
+            Some(options) => plumtree::Node::with_options(id, options),
+            None => plumtree::Node::new(id),
         };
 
         let worker = Self {
@@ -55,6 +81,8 @@ impl BroadcastWorker {
             ),
             membership_node: membership_node,
             membership_intervals_config: config.membership_intervals,
+            broadcast_node: broadcast_node,
+            broadcast_intervals_config: config.broadcast_intervals,
         };
 
         Ok((in_tx, out_rx, worker))
@@ -74,8 +102,12 @@ impl BroadcastWorker {
             get_interval(self.membership_intervals_config.shuffle_passive);
         let mut fill_active_interval = get_interval(self.membership_intervals_config.fill_active);
         let mut sync_active_interval = get_interval(self.membership_intervals_config.sync_active);
-        let mut poll_interval = get_interval(self.membership_intervals_config.poll);
+        let mut membership_poll_interval = get_interval(self.membership_intervals_config.poll);
         let mut cleanup_interval = get_interval(self.membership_intervals_config.cleanup);
+
+        let mut broadcast_poll_interval = get_interval(self.broadcast_intervals_config.poll);
+        let mut broadcast_tick_interval = get_interval(self.broadcast_intervals_config.tick);
+        let mut last_ticked = Instant::now();
 
         loop {
             select! {
@@ -83,15 +115,31 @@ impl BroadcastWorker {
                 _ = fill_active_interval.tick() => self.membership_node.fill_active_view(),
                 _ = sync_active_interval.tick() => self.membership_node.sync_active_view(),
                 _ = cleanup_interval.tick() => self.connections_manager.cleanup().await,
-                _ = poll_interval.tick() => {
-                    let action = match self.membership_node.poll_action() {
-                        Some(action) => action,
-                        None => continue
-                    };
-                    self.handle_membership_action(action).await;
+                now = broadcast_tick_interval.tick() => {
+                    let elapsed = now.duration_since(last_ticked);
+                    last_ticked = now;
+                    self.broadcast_node.clock_mut().tick(elapsed);
                 },
-                Some(_message) = self.connections_manager.new_messages.recv() => {
-                    // Handle message in Plumtree
+                _ = membership_poll_interval.tick() => {
+                    while let Some(action) = self.membership_node.poll_action() {
+                        self.handle_membership_action(action).await;
+                    };
+                },
+                _ = broadcast_poll_interval.tick() => {
+                    while let Some(action) = self.broadcast_node.poll_action() {
+                        self.handle_broadcast_action(action).await;
+                    };
+                },
+                Some(message) = self.connections_manager.new_messages.recv() => {
+                    match message {
+                        Message::Membership(message) => self.membership_node.handle_protocol_message(message),
+                        Message::Broadcast(message) => {let _ =  self.broadcast_node.handle_protocol_message(message);}
+                    }
+                },
+                Some(broadcast_message) = self.to_broadcast.recv() => {
+                    let id = Uuid::new_v4();
+                    let packed_message = plumtree::message::Message::new(id, broadcast_message);
+                    self.broadcast_node.broadcast_message(packed_message);
                 },
                 else => break
             }
@@ -102,7 +150,7 @@ impl BroadcastWorker {
 
     async fn handle_membership_action(&mut self, action: hyparview::Action<NodeId>) {
         match action {
-            Action::Send {
+            hyparview::Action::Send {
                 destination,
                 message,
             } => {
@@ -111,10 +159,33 @@ impl BroadcastWorker {
                     .await
             }
 
-            Action::Disconnect { node } => self.connections_manager.disconnet(node).await,
+            hyparview::Action::Disconnect { node } => {
+                self.connections_manager.disconnet(node).await
+            }
 
-            Action::Notify { event } => {
-                // Implement for Plumtree
+            hyparview::Action::Notify { event } => match event {
+                hyparview::Event::NeighborUp { node } => {
+                    self.broadcast_node.handle_neighbor_up(&node)
+                }
+                hyparview::Event::NeighborDown { node } => {
+                    self.broadcast_node.handle_neighbor_down(&node)
+                }
+            },
+        }
+    }
+
+    async fn handle_broadcast_action(&mut self, action: plumtree::Action<BroadcastSystem>) {
+        match action {
+            plumtree::Action::Send {
+                destination,
+                message,
+            } => {
+                self.connections_manager
+                    .send(destination, message.into())
+                    .await;
+            }
+            plumtree::Action::Deliver { message } => {
+                let _ = self.new_messages.send(message.payload).await;
             }
         }
     }
