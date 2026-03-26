@@ -12,14 +12,15 @@ use tokio::time::Instant;
 use tokio::time::Interval;
 use uuid::Uuid;
 
+use crate::state::storage::{KeyType, ValueType};
+
 pub mod config;
 
 mod connections_manager;
 use connections_manager::ConnectionsManager;
 
-use crate::broadcast::message::Message;
-
 mod message;
+use message::Message;
 
 pub type MessageSender = mpsc::Sender<Payload>;
 pub type MessageReceiver = mpsc::Receiver<Payload>;
@@ -28,7 +29,10 @@ pub type NodeId = SocketAddr;
 pub type MessageId = Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Payload;
+pub struct Payload {
+    pub to: KeyType,
+    pub data: ValueType,
+}
 
 pub struct BroadcastSystem;
 

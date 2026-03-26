@@ -1,5 +1,7 @@
 use crate::api::*;
+use crate::broadcast::Payload;
 use crate::state::AppState;
+
 use anyhow::Result;
 
 pub async fn handle(
@@ -9,9 +11,13 @@ pub async fn handle(
     let recipient = request.body.recipient;
     let value = request.body.data;
 
-    let mut guard = state.storage.write().map_err(|_| anyhow::anyhow!(""))?;
-    let storage = &mut *guard;
+    state
+        .broadcast_tx
+        .send(Payload {
+            to: recipient,
+            data: value,
+        })
+        .await?;
 
-    storage.insert(&recipient, value);
-    Ok(QueuePostResponse::NotFound)
+    Ok(QueuePostResponse::NoContent)
 }

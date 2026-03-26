@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
-type KeyType = String;
-type ValueType = String;
+pub type KeyType = String;
+pub type ValueType = String;
 
 pub struct Storage {
-    storage: HashMap<KeyType, ValueType>,
+    storage: HashMap<KeyType, Vec<ValueType>>,
 }
 
 impl Storage {
@@ -14,15 +14,19 @@ impl Storage {
         }
     }
 
-    pub fn touch(&mut self, _key: &KeyType) {
-        // Initialize resources for key. Not requered for now
+    pub fn touch(&mut self, key: KeyType) {
+        self.storage.insert(key, Vec::new());
     }
 
-    pub fn insert(&mut self, key: &KeyType, value: ValueType) {
-        self.storage.insert(key.clone(), value);
+    pub(super) fn insert(&mut self, key: &KeyType, value: ValueType) {
+        let Some(item) = self.storage.get_mut(key) else {
+            return;
+        };
+
+        item.push(value);
     }
 
-    pub fn get(&self, key: &KeyType) -> Option<&ValueType> {
+    pub fn get(&self, key: &KeyType) -> Option<&Vec<ValueType>> {
         self.storage.get(key)
     }
 }

@@ -12,7 +12,7 @@ pub async fn handle(
     let mut guard = state.storage.write().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &mut *guard;
 
-    storage.touch(&id);
+    storage.touch(id);
 
     Ok(RegisterResponseEnum::Ok(RegisterResponse {
         reserved_until: Utc::now(),

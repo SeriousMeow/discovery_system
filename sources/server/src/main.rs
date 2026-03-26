@@ -12,6 +12,7 @@ pub mod state;
 use state::AppState;
 
 pub mod broadcast;
+use broadcast::MessageSender;
 
 #[derive(Clone)]
 struct ApiImpl {
@@ -19,9 +20,9 @@ struct ApiImpl {
 }
 
 impl ApiImpl {
-    fn new() -> Self {
+    fn new(broadcast_tx: MessageSender) -> Self {
         Self {
-            state: AppState::new(),
+            state: AppState::new(broadcast_tx),
         }
     }
 }
@@ -53,15 +54,17 @@ impl ApiServer for ApiImpl {
 async fn main() -> Result<()> {
     let config = broadcast::config::Config::default();
     let contact_node = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000));
-    let (_, _, worker) = broadcast::BroadcastWorker::new(config, contact_node).await?;
+    let (broadcast_tx, incoming_rx, worker) =
+        broadcast::BroadcastWorker::new(config, contact_node).await?;
 
-    tokio::spawn(async move {
-        worker.run().await?;
+    tokio::spawn(worker.run());
 
-        Ok::<_, anyhow::Error>(())
-    });
+    let api_impl = ApiImpl::new(broadcast_tx);
 
-    let api_impl = ApiImpl::new();
+    tokio::spawn(state::handle_incoming(
+        incoming_rx,
+        api_impl.state.storage.clone(),
+    ));
 
     let app = router(api_impl);
 

@@ -17,6 +17,6 @@ pub async fn handle(
     };
 
     Ok(QueueGetResponseEnum::Ok(QueueGetResponse {
-        data: vec![value.clone()],
+        data: value.clone(),
     }))
 }
