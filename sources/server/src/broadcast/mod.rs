@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 
 use anyhow::Result;
@@ -50,6 +51,8 @@ pub struct BroadcastWorker {
     membership_intervals_config: config::MembershipIntervals,
     broadcast_node: plumtree::Node<BroadcastSystem>,
     broadcast_intervals_config: config::BroadcastIntervals,
+    delivered_message_ids: VecDeque<MessageId>,
+    max_stored_messages: usize,
 }
 
 impl BroadcastWorker {
@@ -87,6 +90,8 @@ impl BroadcastWorker {
             membership_intervals_config: config.membership_intervals,
             broadcast_node: broadcast_node,
             broadcast_intervals_config: config.broadcast_intervals,
+            delivered_message_ids: VecDeque::new(),
+            max_stored_messages: config.max_stored_messages,
         };
 
         Ok((in_tx, out_rx, worker))
@@ -189,7 +194,16 @@ impl BroadcastWorker {
                     .await;
             }
             plumtree::Action::Deliver { message } => {
+                let message_id = message.id;
                 let _ = self.new_messages.send(message.payload).await;
+                self.delivered_message_ids.push_back(message_id);
+
+                while self.broadcast_node.messages().len() > self.max_stored_messages {
+                    let Some(remove_id) = self.delivered_message_ids.pop_front() else {
+                        break;
+                    };
+                    self.broadcast_node.forget_message(&remove_id);
+                }
             }
         }
     }

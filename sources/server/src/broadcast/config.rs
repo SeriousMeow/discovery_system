@@ -14,6 +14,8 @@ pub struct Config {
     pub new_messages_buffer_size: usize,
     #[default(DEFAULT_BUFFER_SIZE)]
     pub internal_messages_buffer_size: usize,
+    #[default(DEFAULT_BUFFER_SIZE)]
+    pub max_stored_messages: usize,
     #[default(None)]
     pub membership_options: Option<hyparview::NodeOptions>,
     #[default(None)]
