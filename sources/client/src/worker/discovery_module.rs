@@ -11,18 +11,13 @@ use tokio::sync::oneshot;
 
 pub const ALPN: &[u8] = b"discovery_system/1";
 
-pub struct DiscoveryServer {
-    pub url: String,
-    pub client: DiscoverySystemClient,
-}
-
 pub struct PendingConnection {
     pub callback: oneshot::Sender<Result<Connection, ConnectionError>>,
 }
 
 pub struct DiscoveryModule {
     pub endpoint: Endpoint,
-    pub discovery_servers: Vec<DiscoveryServer>,
+    pub discovery_client: DiscoverySystemClient,
     pub pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
     _router: Router,
 }
@@ -31,6 +26,7 @@ impl DiscoveryModule {
     pub async fn new(
         pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
         connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
+        server_url: String,
     ) -> Result<Self> {
         let endpoint = Endpoint::bind().await?;
         let handler = Handler::new(pending_connections.clone(), connections);
@@ -39,9 +35,11 @@ impl DiscoveryModule {
             .accept(ALPN, handler)
             .spawn();
 
+        let discovery_client = DiscoverySystemClient::with_base_url(&server_url)?;
+
         Ok(Self {
-            endpoint: endpoint,
-            discovery_servers: Vec::new(),
+            endpoint,
+            discovery_client,
             pending_connections,
             _router: router,
         })
@@ -60,23 +58,6 @@ impl DiscoveryModule {
     pub fn has_pending_connection(&self, id: EndpointId) -> bool {
         let guard = self.pending_connections.read().unwrap();
         guard.contains_key(&id)
-    }
-
-    pub fn add_server(&mut self, url: String) -> Result<()> {
-        let client = DiscoverySystemClient::with_base_url(&url)?;
-        self.discovery_servers.push(DiscoveryServer { url, client });
-        Ok(())
-    }
-
-    pub fn remove_server(&mut self, url: &str) {
-        self.discovery_servers.retain(|server| server.url != url);
-    }
-
-    pub fn list_servers(&self) -> Vec<String> {
-        self.discovery_servers
-            .iter()
-            .map(|server| server.url.clone())
-            .collect()
     }
 
     pub fn get_credentials(&self) -> Credentials {

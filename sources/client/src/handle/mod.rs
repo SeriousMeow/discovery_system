@@ -3,9 +3,7 @@ use iroh::endpoint::{RecvStream, SendStream};
 use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 
-use crate::handle::error::{
-    AcceptConnectionError, AddDiscoveryServerError, GoOnlineError, RemoveDiscoveryServerError,
-};
+use crate::handle::error::{AcceptConnectionError, GoOnlineError};
 use crate::worker::commands;
 
 #[derive(Clone)]
@@ -23,16 +21,11 @@ impl Handle {
     pub async fn connect(
         &self,
         peer_id: EndpointId,
-        peer_discovery_servers: Vec<String>,
         timeout: Duration,
     ) -> Result<(), error::ConnectError> {
         use crate::worker::commands::connect::*;
 
-        let request = Request {
-            peer_id,
-            peer_discovery_servers,
-            timeout,
-        };
+        let request = Request { peer_id, timeout };
         let (command, rx) = Command::new(request);
 
         self.commands_sender.send(command.into()).await.unwrap();
@@ -40,10 +33,11 @@ impl Handle {
         rx.await.unwrap()
     }
 
-    pub async fn go_online(&self) -> Result<(), GoOnlineError> {
+    pub async fn go_online(&self, server_url: String) -> Result<(), GoOnlineError> {
         use crate::worker::commands::go_online::*;
 
-        let (command, rx) = Command::new(());
+        let request = Request { server_url };
+        let (command, rx) = Command::new(request);
 
         self.commands_sender.send(command.into()).await.unwrap();
 
@@ -103,41 +97,6 @@ impl Handle {
         rx.await.unwrap()
     }
 
-    pub async fn add_discovery_server(&self, url: String) -> Result<(), AddDiscoveryServerError> {
-        use crate::worker::commands::add_discovery_server::*;
-
-        let request = Request { url };
-        let (command, rx) = Command::new(request);
-
-        self.commands_sender.send(command.into()).await.unwrap();
-
-        rx.await.unwrap()
-    }
-
-    pub async fn remove_discovery_server(
-        &self,
-        url: String,
-    ) -> Result<(), RemoveDiscoveryServerError> {
-        use crate::worker::commands::remove_discovery_server::*;
-
-        let request = Request { url };
-        let (command, rx) = Command::new(request);
-
-        self.commands_sender.send(command.into()).await.unwrap();
-
-        rx.await.unwrap()
-    }
-
-    pub async fn list_discovery_servers(&self) -> Vec<String> {
-        use crate::worker::commands::list_discovery_servers::*;
-
-        let (command, rx) = Command::new(());
-
-        self.commands_sender.send(command.into()).await.unwrap();
-
-        rx.await.unwrap()
-    }
-
     pub async fn list_incoming_connections(&self) -> Vec<EndpointId> {
         use crate::worker::commands::list_incoming_connections::*;
 
@@ -157,6 +116,4 @@ pub mod error {
     pub type AcceptStreamError = commands::accept_stream::Error;
     pub type OpenStreamError = commands::open_stream::Error;
     pub type GoOnlineError = commands::go_online::Error;
-    pub type AddDiscoveryServerError = commands::add_discovery_server::Error;
-    pub type RemoveDiscoveryServerError = commands::remove_discovery_server::Error;
 }

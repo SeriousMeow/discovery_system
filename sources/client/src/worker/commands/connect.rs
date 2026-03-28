@@ -15,7 +15,7 @@ pub enum Error {
     AlreadyConnected,
     #[error("connection with peer is already in progress")]
     AlreadyConnecting,
-    #[error("failed to send discovery ticket to any peer server")]
+    #[error("failed to send discovery ticket to peer server")]
     DiscoveryPostFailed,
     #[error("failed to connect")]
     ConnectionError(#[from] iroh::endpoint::ConnectionError),
@@ -27,7 +27,6 @@ pub type Command = rpc::Command<Request, Response>;
 
 pub struct Request {
     pub peer_id: EndpointId,
-    pub peer_discovery_servers: Vec<String>,
     pub timeout: Duration,
 }
 
@@ -57,26 +56,20 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
 
         let my_ticket = EndpointTicket::from(module.endpoint.addr()).to_string();
 
-        let mut posted_to_any = false;
-        for server_url in &command.request.peer_discovery_servers {
-            let Ok(client) = crate::api::DiscoverySystemClient::with_base_url(server_url) else {
-                continue;
-            };
+        let post_request = QueuePostRequestParams {
+            body: QueuePostRequest {
+                credentials: module.get_credentials(),
+                recipient: peer_id.to_string(),
+                data: my_ticket.clone(),
+            },
+        };
 
-            let post_request = QueuePostRequestParams {
-                body: QueuePostRequest {
-                    credentials: module.get_credentials(),
-                    recipient: peer_id.to_string(),
-                    data: my_ticket.clone(),
-                },
-            };
-
-            if client.queue_post(post_request).await.is_ok() {
-                posted_to_any = true;
-            }
-        }
-
-        if !posted_to_any {
+        if module
+            .discovery_client
+            .queue_post(post_request)
+            .await
+            .is_err()
+        {
             let _ = response_tx.send(Err(Error::DiscoveryPostFailed));
             return;
         }

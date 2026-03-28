@@ -73,15 +73,6 @@ impl Worker {
             WorkerCommand::IsOnline(command) => {
                 self.handle(command).await;
             }
-            WorkerCommand::AddDiscoveryServer(command) => {
-                self.handle(command).await;
-            }
-            WorkerCommand::RemoveDiscoveryServer(command) => {
-                self.handle(command).await;
-            }
-            WorkerCommand::ListDiscoveryServers(command) => {
-                self.handle(command).await;
-            }
             WorkerCommand::ListIncomingConnections(command) => {
                 self.handle(command).await;
             }
@@ -113,27 +104,26 @@ impl Worker {
         let credentials = module.get_credentials();
         let mut raw_tickets: Vec<String> = Vec::new();
 
-        for server in &mut module.discovery_servers {
-            let request = QueueGetRequestParams {
-                body: QueueGetRequest {
-                    credentials: credentials.clone(),
-                },
-            };
+        let client = &module.discovery_client;
+        let request = QueueGetRequestParams {
+            body: QueueGetRequest {
+                credentials: credentials.clone(),
+            },
+        };
 
-            match server.client.queue_get(request).await {
-                Ok(QueueGetResponseEnum::Ok(response)) => {
-                    raw_tickets.extend(response.data);
-                }
-                Ok(QueueGetResponseEnum::NotFound) => {
-                    let register_request = RegisterRequestParams {
-                        body: RegisterRequest {
-                            credentials: credentials.clone(),
-                        },
-                    };
-                    let _ = server.client.register(register_request).await;
-                }
-                _ => {}
+        match client.queue_get(request).await {
+            Ok(QueueGetResponseEnum::Ok(response)) => {
+                raw_tickets.extend(response.data);
             }
+            Ok(QueueGetResponseEnum::NotFound) => {
+                let register_request = RegisterRequestParams {
+                    body: RegisterRequest {
+                        credentials: credentials.clone(),
+                    },
+                };
+                let _ = client.register(register_request).await;
+            }
+            _ => {}
         }
 
         for raw in raw_tickets {
