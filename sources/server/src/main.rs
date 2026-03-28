@@ -1,5 +1,8 @@
 use anyhow::Result;
 use axum::serve;
+use tower_http::trace::TraceLayer;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 mod api;
 use api::*;
@@ -50,10 +53,15 @@ impl ApiServer for ApiImpl {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .init();
+
     let (config, addrs) = broadcast::config::Config::from_sources()?;
-    let contact_node = addrs.contact_node;
     let (broadcast_tx, incoming_rx, worker) =
-        broadcast::BroadcastWorker::new(config, contact_node).await?;
+        broadcast::BroadcastWorker::new(config, addrs.local_node_id, addrs.contact_node).await?;
 
     tokio::spawn(worker.run());
 
@@ -64,9 +72,10 @@ async fn main() -> Result<()> {
         api_impl.state.storage.clone(),
     ));
 
-    let app = router(api_impl);
+    let app = router(api_impl).layer(TraceLayer::new_for_http());
 
     let listener = tokio::net::TcpListener::bind(addrs.http_addr).await?;
+    info!("HTTP server listening on {}", addrs.http_addr);
 
     serve(listener, app).await.expect("Server error");
 

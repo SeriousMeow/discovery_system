@@ -10,6 +10,15 @@ pub enum Message {
     Broadcast(plumtree::message::ProtocolMessage<BroadcastSystem>),
 }
 
+impl Message {
+    pub(crate) fn is_plumtree_user_gossip(&self) -> bool {
+        matches!(
+            self,
+            Message::Broadcast(plumtree::message::ProtocolMessage::Gossip(_))
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 enum MessageMirror {
     Membership(membership::mirror::ProtocolMessage),

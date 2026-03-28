@@ -3455,6 +3455,9 @@ dependencies = [
  "smart-default",
  "tokio",
  "tokio-util",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
  "uuid",
  "validator",
 ]
@@ -3977,6 +3980,7 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
+ "tracing",
 ]
 
 [[package]]

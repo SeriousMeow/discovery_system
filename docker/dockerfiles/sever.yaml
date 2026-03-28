@@ -1,0 +1,26 @@
+FROM rust:1-alpine AS builder
+
+WORKDIR /app/sources
+
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev build-base
+RUN cargo install oas3-gen
+
+COPY sources/ ./
+COPY openapi/ /app/openapi/
+RUN cargo build --release -p server
+
+FROM alpine:3.20 AS runtime
+
+RUN apk add --no-cache ca-certificates
+
+WORKDIR /app
+
+COPY --from=builder /app/sources/target/release/server /usr/local/bin/server
+COPY docker/server-config.json /app/server-config.json
+
+ENV DISCOVERY_SERVER_HTTP_ADDR=0.0.0.0:8080
+ENV DISCOVERY_SERVER_LISTEN_ADDR=0.0.0.0:8081
+
+EXPOSE 8080 8081
+
+CMD ["server"]

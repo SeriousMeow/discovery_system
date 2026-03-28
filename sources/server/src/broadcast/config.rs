@@ -1,5 +1,5 @@
 use smart_default::SmartDefault;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::path::Path;
 use tokio::time::Duration;
 
@@ -45,8 +45,10 @@ pub struct Config {
 pub struct Addresses {
     #[default(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080)))]
     pub http_addr: SocketAddr,
-    #[default(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8000)))]
-    pub contact_node: SocketAddr,
+    #[default(None)]
+    pub contact_node: Option<IpAddr>,
+    #[default(IpAddr::V4(Ipv4Addr::LOCALHOST))]
+    pub local_node_id: IpAddr,
 }
 
 #[derive(SmartDefault, Validate)]
@@ -148,8 +150,9 @@ impl Config {
 
         if let Some(path) = std::env::var_os(ENV_CONFIG_JSON) {
             let path = Path::new(&path);
-            let json = std::fs::read_to_string(path)
-                .with_context(|| format!("failed to read JSON config file at {}", path.display()))?;
+            let json = std::fs::read_to_string(path).with_context(|| {
+                format!("failed to read JSON config file at {}", path.display())
+            })?;
             let parsed: ConfigJson = serde_json::from_str(&json).with_context(|| {
                 format!(
                     "failed to parse JSON config at {} (must contain non-address fields only)",
@@ -161,7 +164,9 @@ impl Config {
 
         apply_addr_env(ENV_LISTEN_ADDR, |a| cfg.listening_address = a)?;
         apply_addr_env(ENV_HTTP_ADDR, |a| addrs.http_addr = a)?;
-        apply_addr_env(ENV_CONTACT_NODE, |a| addrs.contact_node = a)?;
+        apply_contact_env(ENV_CONTACT_NODE, |ip| addrs.contact_node = Some(ip))?;
+
+        addrs.local_node_id = resolve_local_node_id(cfg.listening_address)?;
 
         cfg.validate_config()?;
 
@@ -232,4 +237,38 @@ fn apply_addr_env(var: &str, mut set: impl FnMut(SocketAddr)) -> Result<()> {
         .with_context(|| format!("invalid {var} (expected host:port), got {raw:?}"))?;
     set(parsed);
     Ok(())
+}
+
+fn parse_contact_node(raw: &str) -> Result<IpAddr> {
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Err(anyhow!("contact node address is empty"));
+    }
+    if let Ok(ip) = raw.parse::<IpAddr>() {
+        return Ok(ip);
+    }
+    let sa: SocketAddr = raw
+        .parse()
+        .with_context(|| format!("invalid contact node (expected IP or host:port), got {raw:?}"))?;
+    Ok(sa.ip())
+}
+
+fn apply_contact_env(var: &str, mut set: impl FnMut(IpAddr)) -> Result<()> {
+    let Ok(raw) = std::env::var(var) else {
+        return Ok(());
+    };
+    set(parse_contact_node(&raw).with_context(|| format!("invalid {var}"))?);
+    Ok(())
+}
+
+fn resolve_local_node_id(listening_address: SocketAddr) -> Result<IpAddr> {
+    let ip = listening_address.ip();
+    if ip.is_unspecified() {
+        return Err(anyhow!(
+            "broadcast listen address {} has unspecified IP; use a concrete address in {} (e.g. 172.29.0.11:8081) so gossip has a stable node identity",
+            listening_address,
+            ENV_LISTEN_ADDR
+        ));
+    }
+    Ok(ip)
 }

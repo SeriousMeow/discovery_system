@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::net::SocketAddr;
+use std::net::IpAddr;
 
 use anyhow::Result;
 use rand::FromEntropy;
@@ -11,6 +11,7 @@ use tokio::sync::mpsc;
 use tokio::time::Duration;
 use tokio::time::Instant;
 use tokio::time::Interval;
+use tracing::{debug, info, trace};
 use uuid::Uuid;
 
 use crate::state::storage::{KeyType, ValueType};
@@ -26,7 +27,7 @@ use message::Message;
 pub type MessageSender = mpsc::Sender<Payload>;
 pub type MessageReceiver = mpsc::Receiver<Payload>;
 
-pub type NodeId = SocketAddr;
+pub type NodeId = IpAddr;
 pub type MessageId = Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -58,25 +59,31 @@ pub struct BroadcastWorker {
 impl BroadcastWorker {
     pub async fn new(
         config: config::Config,
-        contact_node: NodeId,
+        local_node_id: IpAddr,
+        contact_node: Option<NodeId>,
     ) -> Result<(MessageSender, MessageReceiver, Self)> {
         let (in_tx, in_rx) = mpsc::channel(config.broadcast_buffer_size);
 
         let (out_tx, out_rx) = mpsc::channel(config.new_messages_buffer_size);
 
-        let id = config.listening_address;
-        let listener = TcpListener::bind(id).await?;
+        let bind_addr = config.listening_address;
+        let listener = TcpListener::bind(bind_addr).await?;
+        info!("broadcast listening on {}", bind_addr);
 
         let mut membership_node = match config.membership_options {
-            Some(options) => hyparview::Node::with_options(id, StdRng::from_entropy(), options),
-            None => hyparview::Node::new(id, StdRng::from_entropy()),
+            Some(options) => {
+                hyparview::Node::with_options(local_node_id, StdRng::from_entropy(), options)
+            }
+            None => hyparview::Node::new(local_node_id, StdRng::from_entropy()),
         };
 
-        membership_node.join(contact_node);
+        if let Some(contact_node) = contact_node {
+            membership_node.join(contact_node);
+        }
 
         let broadcast_node = match config.broadcast_option {
-            Some(options) => plumtree::Node::with_options(id, options),
-            None => plumtree::Node::new(id),
+            Some(options) => plumtree::Node::with_options(local_node_id, options),
+            None => plumtree::Node::new(local_node_id),
         };
 
         let worker = Self {
@@ -85,6 +92,7 @@ impl BroadcastWorker {
             connections_manager: ConnectionsManager::new(
                 config.internal_messages_buffer_size,
                 listener,
+                bind_addr.port(),
             ),
             membership_node: membership_node,
             membership_intervals_config: config.membership_intervals,
@@ -120,33 +128,72 @@ impl BroadcastWorker {
 
         loop {
             select! {
-                _ = shuffle_passive_interval.tick() => self.membership_node.shuffle_passive_view(),
-                _ = fill_active_interval.tick() => self.membership_node.fill_active_view(),
-                _ = sync_active_interval.tick() => self.membership_node.sync_active_view(),
-                _ = cleanup_interval.tick() => self.connections_manager.cleanup().await,
+                _ = shuffle_passive_interval.tick() => {
+                    trace!("Shuffling passive view");
+                    self.membership_node.shuffle_passive_view()}
+                ,
+                _ = fill_active_interval.tick() => {
+                    trace!("Filling active view");
+                    self.membership_node.fill_active_view()},
+                _ = sync_active_interval.tick() => {
+                    trace!("Syncing active view");
+                    self.membership_node.sync_active_view()
+                },
+                _ = cleanup_interval.tick() => {
+                    trace!("Cleaning up closed connections");
+                    self.connections_manager.cleanup().await
+                },
                 now = broadcast_tick_interval.tick() => {
+                    trace!("Ticking broadcast node");
                     let elapsed = now.duration_since(last_ticked);
                     last_ticked = now;
                     self.broadcast_node.clock_mut().tick(elapsed);
                 },
                 _ = membership_poll_interval.tick() => {
+                    trace!("Polling membership node for actions");
                     while let Some(action) = self.membership_node.poll_action() {
                         self.handle_membership_action(action).await;
                     };
+                    trace!("Finished polling membership node for actions");
                 },
                 _ = broadcast_poll_interval.tick() => {
+                    trace!("Polling broadcast node for actions");
                     while let Some(action) = self.broadcast_node.poll_action() {
                         self.handle_broadcast_action(action).await;
                     };
+                    trace!("Finished polling broadcast node for actions");
                 },
                 Some(message) = self.connections_manager.new_messages.recv() => {
+                    let json = serde_json::to_string(&message)
+                                .unwrap_or_else(|e| format!("<json error: {e}>"));
+                    let user_gossip = message.is_plumtree_user_gossip();
                     match message {
-                        Message::Membership(message) => self.membership_node.handle_protocol_message(message),
-                        Message::Broadcast(message) => {let _ =  self.broadcast_node.handle_protocol_message(message);}
+                        Message::Membership(message) => {
+                            trace!(
+                                message = %json,
+                                "Received membership message"
+                            );
+                            self.membership_node.handle_protocol_message(message)
+                        },
+                        Message::Broadcast(message) => {
+                            if user_gossip {
+                                debug!(
+                                    message = %json,
+                                    "Received broadcast message"
+                                );
+                            } else {
+                                trace!(
+                                    message = %json,
+                                    "Received plumtree broadcast control message"
+                                );
+                            }
+                            let _ = self.broadcast_node.handle_protocol_message(message);
+                        }
                     }
                 },
                 Some(broadcast_message) = self.to_broadcast.recv() => {
                     let id = Uuid::new_v4();
+                    debug!("Enqueuing message {} to {} for broadcast", id, broadcast_message.to);
                     let packed_message = plumtree::message::Message::new(id, broadcast_message);
                     self.broadcast_node.broadcast_message(packed_message);
                 },
@@ -163,20 +210,24 @@ impl BroadcastWorker {
                 destination,
                 message,
             } => {
+                trace!("Sending membership message to {}", destination);
                 self.connections_manager
                     .send(destination, Message::Membership(message))
                     .await
             }
 
             hyparview::Action::Disconnect { node } => {
+                trace!("Disconnecting from node: {}", node);
                 self.connections_manager.disconnet(node).await
             }
 
             hyparview::Action::Notify { event } => match event {
                 hyparview::Event::NeighborUp { node } => {
+                    trace!("Handling NeighborUp for node: {}", node);
                     self.broadcast_node.handle_neighbor_up(&node)
                 }
                 hyparview::Event::NeighborDown { node } => {
+                    trace!("Handling NeighborDown for node: {}", node);
                     self.broadcast_node.handle_neighbor_down(&node)
                 }
             },
@@ -189,12 +240,17 @@ impl BroadcastWorker {
                 destination,
                 message,
             } => {
-                self.connections_manager
-                    .send(destination, message.into())
-                    .await;
+                let wire: Message = message.into();
+                if wire.is_plumtree_user_gossip() {
+                    debug!("Sending broadcast message to {}", destination);
+                } else {
+                    trace!("Sending broadcast message to {}", destination);
+                }
+                self.connections_manager.send(destination, wire).await;
             }
             plumtree::Action::Deliver { message } => {
                 let message_id = message.id;
+                debug!("Delivering broadcast message {}", message_id);
                 let _ = self.new_messages.send(message.payload).await;
                 self.delivered_message_ids.push_back(message_id);
 

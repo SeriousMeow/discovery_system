@@ -1,0 +1,16 @@
+services:
+  server1:
+    environment:
+      RUST_LOG: debug
+  server2:
+    environment:
+      RUST_LOG: debug
+  server3:
+    environment:
+      RUST_LOG: debug
+  server4:
+    environment:
+      RUST_LOG: debug
+  server5:
+    environment:
+      RUST_LOG: debug
