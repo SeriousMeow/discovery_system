@@ -93,6 +93,48 @@ services:
         ipv4_address: 172.29.0.15
     command: ["sh", "-c", "sleep 20 && server"]
 
+  messenger1:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/messenger.Dockerfile
+    image: discovery-system/messenger:line
+    environment:
+      MESSENGER_HTTP_ADDR: 0.0.0.0:3030
+      MESSENGER_WEBUI_DIR: /app/webui
+    ports:
+      - "13030:3030"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.21
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    command: ["sh", "-c", "sleep 30 && messenger"]
+
+  messenger2:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/messenger.Dockerfile
+    image: discovery-system/messenger:line
+    environment:
+      MESSENGER_HTTP_ADDR: 0.0.0.0:3030
+      MESSENGER_WEBUI_DIR: /app/webui
+    ports:
+      - "13031:3030"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.22
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    command: ["sh", "-c", "sleep 30 && messenger"]
+
 networks:
   ring_net:
     driver: bridge

@@ -97,6 +97,26 @@ impl Handle {
         rx.await.unwrap()
     }
 
+    pub async fn self_id(&self) -> Option<EndpointId> {
+        use crate::worker::commands::self_id::*;
+
+        let (command, rx) = Command::new(());
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn list_connections(&self) -> Vec<EndpointId> {
+        use crate::worker::commands::list_connections::*;
+
+        let (command, rx) = Command::new(Request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
     pub async fn list_incoming_connections(&self) -> Vec<EndpointId> {
         use crate::worker::commands::list_incoming_connections::*;
 

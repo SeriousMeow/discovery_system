@@ -1,6 +1,6 @@
 use std::process::Command;
 
-const OPENAPI_PATH: &str = "../../openapi/api.yaml";
+const OPENAPI_PATH: &str = "../../openapi/server.yaml";
 
 fn main() {
     println!("cargo::rerun-if-changed={OPENAPI_PATH}");

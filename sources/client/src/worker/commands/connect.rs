@@ -16,7 +16,7 @@ pub enum Error {
     #[error("connection with peer is already in progress")]
     AlreadyConnecting,
     #[error("failed to send discovery ticket to peer server")]
-    DiscoveryPostFailed,
+    DiscoveryPostFailed(#[from] anyhow::Error),
     #[error("failed to connect")]
     ConnectionError(#[from] iroh::endpoint::ConnectionError),
     #[error("connection timed out")]
@@ -64,13 +64,12 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             },
         };
 
-        if module
+        if let Err(e) = module
             .discovery_client
             .queue_post(post_request)
             .await
-            .is_err()
         {
-            let _ = response_tx.send(Err(Error::DiscoveryPostFailed));
+            let _ = response_tx.send(Err(Error::DiscoveryPostFailed(e)));
             return;
         }
 

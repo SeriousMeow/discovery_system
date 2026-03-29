@@ -1,18 +1,18 @@
 use std::process::Command;
 
-const OPENAPI_PATH: &str = "../../openapi/server.yaml";
+const MESSENGER_OPENAPI_PATH: &str = "../../openapi/messanger.yaml";
 
 fn main() {
-    println!("cargo::rerun-if-changed={OPENAPI_PATH}");
+    println!("cargo::rerun-if-changed={MESSENGER_OPENAPI_PATH}");
 
     let status = match Command::new("oas3-gen")
         .args([
             "generate",
-            "client-mod",
+            "server-mod",
             "-i",
-            OPENAPI_PATH,
+            MESSENGER_OPENAPI_PATH,
             "-o",
-            "src/api",
+            "src/api/api_impl",
         ])
         .status()
     {

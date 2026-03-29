@@ -73,6 +73,12 @@ impl Worker {
             WorkerCommand::IsOnline(command) => {
                 self.handle(command).await;
             }
+            WorkerCommand::SelfId(command) => {
+                self.handle(command).await;
+            }
+            WorkerCommand::ListConnections(command) => {
+                self.handle(command).await;
+            }
             WorkerCommand::ListIncomingConnections(command) => {
                 self.handle(command).await;
             }

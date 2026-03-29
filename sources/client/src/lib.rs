@@ -6,6 +6,7 @@ mod handle;
 pub(crate) mod utils;
 mod worker;
 
+pub use handle::error;
 pub use handle::Handle;
 pub use worker::Worker;
 
