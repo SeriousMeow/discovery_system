@@ -1,7 +1,6 @@
 (function () {
   "use strict";
 
-  const LS_API = "messenger_webui_api_base";
   const LS_DISCOVERY = "messenger_webui_discovery_url";
   const LS_TIMEOUT = "messenger_webui_default_timeout_ms";
 
@@ -20,10 +19,8 @@
 
   function loadStored() {
     try {
-      const a = localStorage.getItem(LS_API);
       const d = localStorage.getItem(LS_DISCOVERY);
       const t = localStorage.getItem(LS_TIMEOUT);
-      if (a) $("api-base").value = a;
       if (d) $("discovery-url").value = d;
       if (t) $("default-timeout").value = t;
     } catch (_) {
@@ -33,7 +30,6 @@
 
   function saveStored() {
     try {
-      localStorage.setItem(LS_API, $("api-base").value.trim());
       localStorage.setItem(LS_DISCOVERY, $("discovery-url").value.trim());
       localStorage.setItem(LS_TIMEOUT, $("default-timeout").value);
     } catch (_) {
@@ -45,6 +41,10 @@
     const s = String(url || "").trim();
     if (!s) return "";
     return s.replace(/\/+$/, "");
+  }
+
+  function resolveApiBaseUrl() {
+    return normalizeBase(window.location.origin);
   }
 
   function defaultTimeoutMs() {
@@ -96,12 +96,7 @@
   }
 
   async function apiCall(path, method, body) {
-    const base = normalizeBase(state.apiBaseUrl);
-    if (!base) {
-      const e = new Error("Set Messenger API base URL first.");
-      logDiag(e.message, "err");
-      throw e;
-    }
+    const base = normalizeBase(state.apiBaseUrl) || resolveApiBaseUrl();
     const url = base + path;
     const options = {
       method: method || "GET",
@@ -151,14 +146,6 @@
     }
     logDiag(m + " " + path + " → " + res.status, "ok");
     return data;
-  }
-
-  function applyApiBase() {
-    state.apiBaseUrl = normalizeBase($("api-base").value);
-    $("api-base").value = state.apiBaseUrl || $("api-base").value.trim();
-    saveStored();
-    chatSys("API base: " + (state.apiBaseUrl || "(empty)"));
-    logDiag("API base applied: " + (state.apiBaseUrl || "(empty)"));
   }
 
   function setOnlineUi(online) {
@@ -386,9 +373,9 @@
     $("conn-timeout").placeholder = String(defaultTimeoutMs());
     $("stream-timeout").placeholder = String(defaultTimeoutMs());
 
-    state.apiBaseUrl = normalizeBase($("api-base").value);
+    state.apiBaseUrl = resolveApiBaseUrl();
+    chatSys("API base: " + state.apiBaseUrl);
 
-    $("btn-apply-base").addEventListener("click", applyApiBase);
     $("btn-go-online").addEventListener("click", function () {
       goOnline().catch(function () {});
     });
