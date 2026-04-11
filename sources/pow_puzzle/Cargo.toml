@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+hex = "0.4"
+rand = "0.8"
+serde = { workspace = true }
 sha2 = "0.10.9"
+thiserror = "2.0"

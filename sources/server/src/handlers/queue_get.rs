@@ -1,22 +1,21 @@
 use crate::api::*;
 use crate::state::AppState;
 use anyhow::Result;
+use pow_puzzle::{PublicKey, public_key_hex_id};
 
 pub async fn handle(
     state: &AppState,
-    request: QueueGetRequestParams,
+    _request: QueueGetRequestParams,
+    public_key: PublicKey,
 ) -> Result<QueueGetResponseEnum> {
-    let id = request.body.credentials.id;
+    let key = public_key_hex_id(&public_key);
 
     let guard = state.storage.read().map_err(|_| anyhow::anyhow!(""))?;
     let storage = &*guard;
 
-    let value = match storage.get(&id) {
-        Some(value) => value,
-        None => return Ok(QueueGetResponseEnum::NotFound),
+    let Some(data) = storage.get(&key).cloned() else {
+        return Ok(QueueGetResponseEnum::NotFound);
     };
 
-    Ok(QueueGetResponseEnum::Ok(QueueGetResponse {
-        data: value.clone(),
-    }))
+    Ok(QueueGetResponseEnum::Ok(QueueGetResponse { data }))
 }

@@ -4,6 +4,13 @@ use std::time::Duration;
 use tokio::sync::mpsc::Sender;
 
 use crate::handle::error::{AcceptConnectionError, GoOnlineError};
+
+/// Identity on the Discovery server: static puzzle public key (same as `credentials.public_key` in Discovery HTTP APIs).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DiscoveryIdentity {
+    pub public_key_base64: String,
+    pub public_key_hex: String,
+}
 use crate::worker::commands;
 
 #[derive(Clone)]
@@ -33,10 +40,44 @@ impl Handle {
         rx.await.unwrap()
     }
 
-    pub async fn go_online(&self, server_url: String) -> Result<(), GoOnlineError> {
+    pub async fn go_online(
+        &self,
+        server_url: String,
+        discovery_public_key: Option<String>,
+    ) -> Result<(), GoOnlineError> {
         use crate::worker::commands::go_online::*;
 
-        let request = Request { server_url };
+        let request = Request {
+            server_url,
+            discovery_public_key,
+        };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
+    pub async fn set_static_puzzle_solution(&self, solution: crate::StaticPuzzleSolution) {
+        use crate::worker::commands::set_static_puzzle_solution::*;
+
+        let request = Request { solution };
+        let (command, rx) = Command::new(request);
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        let _ = rx.await;
+    }
+
+    pub async fn generate_static_puzzle_solution(
+        &self,
+        min_difficulty_bits: u32,
+    ) -> Result<(), error::GenerateStaticPuzzleSolutionError> {
+        use crate::worker::commands::generate_static_puzzle_solution::*;
+
+        let request = Request {
+            min_difficulty_bits,
+        };
         let (command, rx) = Command::new(request);
 
         self.commands_sender.send(command.into()).await.unwrap();
@@ -107,6 +148,17 @@ impl Handle {
         rx.await.unwrap()
     }
 
+    /// Discovery registration identity (puzzle public key), if [`go_online`](Self::go_online) succeeded.
+    pub async fn discovery_identity(&self) -> Option<DiscoveryIdentity> {
+        use crate::worker::commands::discovery_identity::*;
+
+        let (command, rx) = Command::new(());
+
+        self.commands_sender.send(command.into()).await.unwrap();
+
+        rx.await.unwrap()
+    }
+
     pub async fn list_connections(&self) -> Vec<EndpointId> {
         use crate::worker::commands::list_connections::*;
 
@@ -132,6 +184,7 @@ pub mod error {
     use crate::worker::commands;
 
     pub type ConnectError = commands::connect::Error;
+    pub type GenerateStaticPuzzleSolutionError = commands::generate_static_puzzle_solution::Error;
     pub type AcceptConnectionError = commands::accept_connection::Error;
     pub type AcceptStreamError = commands::accept_stream::Error;
     pub type OpenStreamError = commands::open_stream::Error;

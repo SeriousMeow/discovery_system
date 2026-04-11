@@ -8,10 +8,7 @@ pub type Response = Option<EndpointId>;
 
 impl rpc::Handler<Request, Response> for crate::worker::Worker {
     async fn handle(&mut self, command: Command) {
-        let id = self
-            .discovery_module
-            .as_ref()
-            .map(|m| m.endpoint.id());
+        let id = self.discovery_module.as_ref().map(|m| m.endpoint.id());
         command.send_result(id);
     }
 }

@@ -10,10 +10,10 @@ use std::time::Duration;
 
 use anyhow::Context;
 use axum::serve;
-use client::{init, Config};
+use client::{Config, init};
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tracing::{info, error};
+use tracing::{error, info};
 
 use api::router;
 use service::MessengerApi;
@@ -22,15 +22,15 @@ use service::MessengerApi;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-                tracing_subscriber::EnvFilter::new("info")
-            }),
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
 
     let config = Config {
         command_buffer_size: 1024,
         poll_interval: Duration::from_secs(5),
+        puzzle_min_difficulty_bits: 8,
     };
 
     let (handle, worker) = init(config);
@@ -49,14 +49,10 @@ async fn main() -> anyhow::Result<()> {
     let webui_path = std::env::var_os("MESSENGER_WEBUI_DIR")
         .map(PathBuf::from)
         .context("MESSENGER_WEBUI_DIR must be set to the static webui directory")?;
-    let webui_meta = std::fs::metadata(&webui_path).with_context(|| {
-        format!("webui directory missing at {}", webui_path.display())
-    })?;
+    let webui_meta = std::fs::metadata(&webui_path)
+        .with_context(|| format!("webui directory missing at {}", webui_path.display()))?;
     if !webui_meta.is_dir() {
-        anyhow::bail!(
-            "webui path is not a directory: {}",
-            webui_path.display()
-        );
+        anyhow::bail!("webui path is not a directory: {}", webui_path.display());
     }
     info!("Using webui path: {}", webui_path.display());
 
@@ -70,9 +66,7 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Messenger HTTP listening on  address {}", http_addr);
 
-    serve(listener, app)
-        .await
-        .context("HTTP server failed")?;
+    serve(listener, app).await.context("HTTP server failed")?;
 
     Ok(())
 }

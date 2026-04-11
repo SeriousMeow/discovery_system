@@ -2,6 +2,7 @@
   "use strict";
 
   const LS_DISCOVERY = "messenger_webui_discovery_url";
+  const LS_DISCOVERY_PK = "messenger_webui_discovery_public_key";
   const LS_TIMEOUT = "messenger_webui_default_timeout_ms";
 
   const POLL_MS = 750;
@@ -20,8 +21,10 @@
   function loadStored() {
     try {
       const d = localStorage.getItem(LS_DISCOVERY);
+      const pk = localStorage.getItem(LS_DISCOVERY_PK);
       const t = localStorage.getItem(LS_TIMEOUT);
       if (d) $("discovery-url").value = d;
+      if (pk) $("discovery-public-key").value = pk;
       if (t) $("default-timeout").value = t;
     } catch (_) {
       /* ignore */
@@ -31,6 +34,7 @@
   function saveStored() {
     try {
       localStorage.setItem(LS_DISCOVERY, $("discovery-url").value.trim());
+      localStorage.setItem(LS_DISCOVERY_PK, $("discovery-public-key").value.trim());
       localStorage.setItem(LS_TIMEOUT, $("default-timeout").value);
     } catch (_) {
       /* ignore */
@@ -171,16 +175,39 @@
       logDiag("Discovery server URL required for go_online", "err");
       return;
     }
-    await apiCall("/go_online", "POST", { server_url });
+    const body = { server_url };
+    const pk = $("discovery-public-key").value.trim();
+    if (pk) body.discovery_public_key = pk;
+    await apiCall("/go_online", "POST", body);
     await refreshOnline();
+    await fetchDiscoveryId();
+  }
+
+  async function fetchDiscoveryId() {
+    const b64 = $("discovery-id-b64");
+    const hex = $("discovery-id-hex");
+    try {
+      const data = await apiCall("/ids/discovery", "GET");
+      const pk = data && data.public_key_base64;
+      const hx = data && data.public_key_hex;
+      b64.textContent = pk ? pk : "—";
+      hex.textContent = hx ? hx : "—";
+      if (!pk || !hx) logDiag("GET /ids/discovery: missing public_key fields", "err");
+    } catch (e) {
+      b64.textContent = "—";
+      hex.textContent = "—";
+    }
   }
 
   async function fetchMeId() {
+    const el = $("me-id");
     try {
-      const data = await apiCall("/me/id", "GET");
-      $("me-id").textContent = data && data.id ? data.id : "—";
+      const data = await apiCall("/ids/self", "GET");
+      const id = data && data.endpoint_id;
+      el.textContent = id ? id : "—";
+      if (!id) logDiag("GET /ids/self: missing endpoint_id in body", "err");
     } catch (e) {
-      $("me-id").textContent = "—";
+      el.textContent = "—";
     }
   }
 
@@ -385,6 +412,9 @@
     $("btn-me-id").addEventListener("click", function () {
       fetchMeId().catch(function () {});
     });
+    $("btn-discovery-id").addEventListener("click", function () {
+      fetchDiscoveryId().catch(function () {});
+    });
     $("btn-connect").addEventListener("click", function () {
       doConnect().catch(function () {});
     });
@@ -418,6 +448,8 @@
       $("conn-timeout").placeholder = String(d);
       $("stream-timeout").placeholder = String(d);
     });
+    $("discovery-url").addEventListener("change", saveStored);
+    $("discovery-public-key").addEventListener("change", saveStored);
 
     refreshOnline().catch(function () {});
   });

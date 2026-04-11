@@ -53,6 +53,17 @@ impl crate::api::ApiServer for MessengerApi {
         handlers::is_online::handle(&self.state, request).await
     }
 
+    async fn ids_self(&self, _request: IdsSelfRequest) -> anyhow::Result<MeIdResponse> {
+        handlers::self_id::handle(&self.state).await
+    }
+
+    async fn ids_discovery(
+        &self,
+        _request: IdsDiscoveryRequest,
+    ) -> anyhow::Result<IdsDiscoveryResponse> {
+        handlers::discovery_identity::handle(&self.state).await
+    }
+
     async fn list_incoming_connections(
         &self,
         request: ListIncomingConnectionsRequest,
@@ -67,8 +78,8 @@ impl crate::api::ApiServer for MessengerApi {
         handlers::list_connections::handle(&self.state, request).await
     }
 
-    async fn me_id(&self, request: MeIdRequest) -> anyhow::Result<MeIdResponseEnum> {
-        handlers::me_id::handle(&self.state, request).await
+    async fn me_id(&self, _request: MeIdRequest) -> anyhow::Result<MeIdResponse> {
+        handlers::self_id::handle(&self.state).await
     }
 
     async fn open_stream(
@@ -99,7 +110,9 @@ impl crate::api::ApiServer for MessengerApi {
         &self,
         request: StreamSendRequestParams,
     ) -> anyhow::Result<StreamSendResponse> {
-        request.validate().map_err(|e| anyhow::anyhow!("validation: {e}"))?;
+        request
+            .validate()
+            .map_err(|e| anyhow::anyhow!("validation: {e}"))?;
         handlers::stream_send::handle(&self.state, request).await
     }
 
@@ -107,7 +120,9 @@ impl crate::api::ApiServer for MessengerApi {
         &self,
         request: StreamDrainRequestParams,
     ) -> anyhow::Result<StreamDrainResponseEnum> {
-        request.validate().map_err(|e| anyhow::anyhow!("validation: {e}"))?;
+        request
+            .validate()
+            .map_err(|e| anyhow::anyhow!("validation: {e}"))?;
         handlers::stream_drain::handle(&self.state, request).await
     }
 
@@ -115,7 +130,9 @@ impl crate::api::ApiServer for MessengerApi {
         &self,
         request: DeleteStreamRequest,
     ) -> anyhow::Result<DeleteStreamResponse> {
-        request.validate().map_err(|e| anyhow::anyhow!("validation: {e}"))?;
+        request
+            .validate()
+            .map_err(|e| anyhow::anyhow!("validation: {e}"))?;
         handlers::delete_stream::handle(&self.state, request).await
     }
 }

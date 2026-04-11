@@ -16,6 +16,7 @@ use crate::api::{
     RegisterRequestParams,
 };
 use crate::utils::rpc::Handler;
+use pow_puzzle::StaticPuzzleSolution;
 
 mod discovery_module;
 
@@ -28,6 +29,7 @@ pub struct Worker {
     connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
     pending_connections: Arc<RwLock<HashMap<EndpointId, discovery_module::PendingConnection>>>,
     pending_incoming_connections: HashMap<EndpointId, EndpointTicket>,
+    pending_static_solution: Option<StaticPuzzleSolution>,
     config: Config,
 }
 
@@ -58,6 +60,7 @@ impl Worker {
             connections: Arc::new(RwLock::new(HashMap::new())),
             pending_connections: Arc::new(RwLock::new(HashMap::new())),
             pending_incoming_connections: HashMap::new(),
+            pending_static_solution: None,
             config,
         }
     }
@@ -71,6 +74,9 @@ impl Worker {
                 self.handle(command).await;
             }
             WorkerCommand::IsOnline(command) => {
+                self.handle(command).await;
+            }
+            WorkerCommand::DiscoveryIdentity(command) => {
                 self.handle(command).await;
             }
             WorkerCommand::SelfId(command) => {
@@ -89,6 +95,12 @@ impl Worker {
                 self.handle(command).await;
             }
             WorkerCommand::OpenStream(command) => {
+                self.handle(command).await;
+            }
+            WorkerCommand::SetStaticPuzzleSolution(command) => {
+                self.handle(command).await;
+            }
+            WorkerCommand::GenerateStaticPuzzleSolution(command) => {
                 self.handle(command).await;
             }
         }
@@ -121,7 +133,7 @@ impl Worker {
             Ok(QueueGetResponseEnum::Ok(response)) => {
                 raw_tickets.extend(response.data);
             }
-            Ok(QueueGetResponseEnum::NotFound) => {
+            Ok(QueueGetResponseEnum::NotFound) | Ok(QueueGetResponseEnum::Forbidden) => {
                 let register_request = RegisterRequestParams {
                     body: RegisterRequest {
                         credentials: credentials.clone(),

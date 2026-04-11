@@ -1,8 +1,8 @@
 use tracing::{info, warn};
 
 use crate::api::*;
-use crate::stream_session::StreamSessionError;
 use crate::state::MessengerState;
+use crate::stream_session::StreamSessionError;
 
 pub async fn handle(
     state: &MessengerState,
@@ -14,11 +14,9 @@ pub async fn handle(
             info!(stream_id, "stream session removed");
             Ok(DeleteStreamResponse::NoContent)
         }
-        Err(StreamSessionError::UnknownStreamId) => Ok(DeleteStreamResponse::NotFound(
-            ErrorBody {
-                message: "unknown stream_id".into(),
-            },
-        )),
+        Err(StreamSessionError::UnknownStreamId) => Ok(DeleteStreamResponse::NotFound(ErrorBody {
+            message: "unknown stream_id".into(),
+        })),
         Err(e) => {
             warn!(stream_id, ?e, "delete_stream: unexpected remove error");
             Ok(DeleteStreamResponse::Conflict(ErrorBody {

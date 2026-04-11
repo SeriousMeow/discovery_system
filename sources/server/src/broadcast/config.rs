@@ -14,9 +14,15 @@ pub const ENV_LISTEN_ADDR: &str = "DISCOVERY_SERVER_LISTEN_ADDR";
 pub const ENV_HTTP_ADDR: &str = "DISCOVERY_SERVER_HTTP_ADDR";
 pub const ENV_CONTACT_NODE: &str = "DISCOVERY_SERVER_CONTACT_NODE";
 pub const ENV_CONFIG_JSON: &str = "DISCOVERY_SERVER_CONFIG_JSON";
+pub const ENV_STATIC_PUZZLE_DIFFICULTY_BITS: &str =
+    "DISCOVERY_SERVER_STATIC_PUZZLE_DIFFICULTY_BITS";
 
 #[derive(SmartDefault, Validate)]
 pub struct Config {
+    /// Minimum leading zero bits required for `SHA256(SHA256(public_key))` at registration.
+    #[default(8)]
+    #[validate(range(min = 0, max = 256))]
+    pub static_puzzle_difficulty_bits: u32,
     #[default(SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, 8080)))]
     pub listening_address: SocketAddr,
     #[default(DEFAULT_BUFFER_SIZE)]
@@ -76,6 +82,7 @@ pub struct BroadcastIntervals {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ConfigJson {
+    static_puzzle_difficulty_bits: Option<u32>,
     broadcast_buffer_size: Option<usize>,
     new_messages_buffer_size: Option<usize>,
     internal_messages_buffer_size: Option<usize>,
@@ -148,6 +155,15 @@ impl Config {
         let mut cfg = Self::default();
         let mut addrs = Addresses::default();
 
+        if let Ok(raw) = std::env::var(ENV_STATIC_PUZZLE_DIFFICULTY_BITS) {
+            let bits: u32 = raw.parse().with_context(|| {
+                format!(
+                    "invalid {ENV_STATIC_PUZZLE_DIFFICULTY_BITS} (expected integer), got {raw:?}"
+                )
+            })?;
+            cfg.static_puzzle_difficulty_bits = bits;
+        }
+
         if let Some(path) = std::env::var_os(ENV_CONFIG_JSON) {
             let path = Path::new(&path);
             let json = std::fs::read_to_string(path).with_context(|| {
@@ -174,6 +190,9 @@ impl Config {
     }
 
     fn apply_json(&mut self, json: ConfigJson) -> Result<()> {
+        if let Some(v) = json.static_puzzle_difficulty_bits {
+            self.static_puzzle_difficulty_bits = v;
+        }
         if let Some(v) = json.broadcast_buffer_size {
             self.broadcast_buffer_size = v;
         }

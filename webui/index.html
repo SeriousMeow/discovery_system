@@ -18,6 +18,22 @@
             <input type="text" id="discovery-url" placeholder="http://127.0.0.1:8080" autocomplete="off" />
           </label>
         </div>
+        <p class="hint">
+          To reuse an existing Discovery identity, paste the puzzle public key as <strong>Base64</strong> (same as
+          <code>credentials.public_key</code>). Leave empty to generate a new key.
+        </p>
+        <div class="row">
+          <label class="grow">
+            <span>Discovery public key when going online (optional, Base64)</span>
+            <input
+              type="text"
+              id="discovery-public-key"
+              class="mono"
+              placeholder="Base64 of 32-byte key — empty = new identity"
+              autocomplete="off"
+            />
+          </label>
+        </div>
         <div class="row">
           <label>
             <span>Default timeout (ms)</span>
@@ -34,10 +50,27 @@
           <button type="button" id="btn-go-online" class="primary">Go online</button>
           <button type="button" id="btn-refresh-online">Refresh status</button>
         </div>
+        <p class="hint">
+          <strong>Iroh endpoint id</strong> (from this app’s Handle, via <code>GET /ids/self</code>) — not your
+          Discovery server registration id.
+        </p>
         <div class="row">
-          <span>My endpoint id:</span>
+          <span>Iroh endpoint id:</span>
           <span class="mono" id="me-id">—</span>
-          <button type="button" id="btn-me-id">Fetch /me/id</button>
+          <button type="button" id="btn-me-id">Fetch /ids/self</button>
+        </div>
+        <p class="hint">
+          <strong>Discovery system id</strong> — static puzzle public key registered with the Discovery server
+          (<code>GET /ids/discovery</code>). Same identity as <code>credentials.public_key</code> in Discovery HTTP APIs.
+        </p>
+        <div class="row">
+          <span>Discovery public key (base64):</span>
+          <span class="mono grow" id="discovery-id-b64">—</span>
+        </div>
+        <div class="row">
+          <span>Discovery id (hex, server queue key):</span>
+          <span class="mono grow" id="discovery-id-hex">—</span>
+          <button type="button" id="btn-discovery-id">Fetch /ids/discovery</button>
         </div>
       </section>
 

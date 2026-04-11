@@ -9,6 +9,9 @@ use api::*;
 
 pub mod handlers;
 
+mod auth;
+mod puzzle_auth;
+
 pub mod state;
 use state::AppState;
 
@@ -21,9 +24,9 @@ struct ApiImpl {
 }
 
 impl ApiImpl {
-    fn new(broadcast_tx: MessageSender) -> Self {
+    fn new(broadcast_tx: MessageSender, static_puzzle_difficulty_bits: u32) -> Self {
         Self {
-            state: AppState::new(broadcast_tx),
+            state: AppState::new(broadcast_tx, static_puzzle_difficulty_bits),
         }
     }
 }
@@ -33,21 +36,42 @@ impl ApiServer for ApiImpl {
         &self,
         request: QueueGetRequestParams,
     ) -> anyhow::Result<QueueGetResponseEnum> {
-        handlers::queue_get::handle(&self.state, request).await
+        let public_key = match auth::authorize_puzzle(
+            &request.body.credentials,
+            self.state.static_puzzle_difficulty_bits,
+        ) {
+            Ok(pk) => pk,
+            Err(()) => return Ok(QueueGetResponseEnum::Forbidden),
+        };
+        handlers::queue_get::handle(&self.state, request, public_key).await
     }
 
     async fn queue_post(
         &self,
         request: QueuePostRequestParams,
     ) -> anyhow::Result<QueuePostResponse> {
-        handlers::queue_post::handle(&self.state, request).await
+        let public_key = match auth::authorize_puzzle(
+            &request.body.credentials,
+            self.state.static_puzzle_difficulty_bits,
+        ) {
+            Ok(pk) => pk,
+            Err(()) => return Ok(QueuePostResponse::Forbidden),
+        };
+        handlers::queue_post::handle(&self.state, request, public_key).await
     }
 
     async fn register(
         &self,
         request: RegisterRequestParams,
     ) -> anyhow::Result<RegisterResponseEnum> {
-        handlers::register::handle(&self.state, request).await
+        let public_key = match auth::authorize_puzzle(
+            &request.body.credentials,
+            self.state.static_puzzle_difficulty_bits,
+        ) {
+            Ok(pk) => pk,
+            Err(()) => return Ok(RegisterResponseEnum::Forbidden),
+        };
+        handlers::register::handle(&self.state, request, public_key).await
     }
 }
 
@@ -60,12 +84,13 @@ async fn main() -> Result<()> {
         .init();
 
     let (config, addrs) = broadcast::config::Config::from_sources()?;
+    let static_puzzle_difficulty_bits = config.static_puzzle_difficulty_bits;
     let (broadcast_tx, incoming_rx, worker) =
         broadcast::BroadcastWorker::new(config, addrs.local_node_id, addrs.contact_node).await?;
 
     tokio::spawn(worker.run());
 
-    let api_impl = ApiImpl::new(broadcast_tx);
+    let api_impl = ApiImpl::new(broadcast_tx, static_puzzle_difficulty_bits);
 
     tokio::spawn(state::handle_incoming(
         incoming_rx,

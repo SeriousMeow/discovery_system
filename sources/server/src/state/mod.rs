@@ -9,13 +9,15 @@ use crate::broadcast::{MessageReceiver, MessageSender};
 pub struct AppState {
     pub storage: Arc<RwLock<Storage>>,
     pub broadcast_tx: MessageSender,
+    pub static_puzzle_difficulty_bits: u32,
 }
 
 impl AppState {
-    pub fn new(broadcast_tx: MessageSender) -> Self {
+    pub fn new(broadcast_tx: MessageSender, static_puzzle_difficulty_bits: u32) -> Self {
         Self {
             storage: Arc::new(RwLock::new(Storage::new())),
             broadcast_tx: broadcast_tx,
+            static_puzzle_difficulty_bits,
         }
     }
 }

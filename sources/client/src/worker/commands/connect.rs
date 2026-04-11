@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::api::{QueuePostRequest, QueuePostRequestParams};
+use crate::api::{QueuePostRequest, QueuePostRequestParams, QueuePostResponse};
 use crate::utils::rpc;
 use iroh::EndpointId;
 use iroh_tickets::endpoint::EndpointTicket;
@@ -17,6 +17,8 @@ pub enum Error {
     AlreadyConnecting,
     #[error("failed to send discovery ticket to peer server")]
     DiscoveryPostFailed(#[from] anyhow::Error),
+    #[error("discovery queue post rejected (sender not registered)")]
+    NotRegistered,
     #[error("failed to connect")]
     ConnectionError(#[from] iroh::endpoint::ConnectionError),
     #[error("connection timed out")]
@@ -64,13 +66,22 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             },
         };
 
-        if let Err(e) = module
-            .discovery_client
-            .queue_post(post_request)
-            .await
-        {
-            let _ = response_tx.send(Err(Error::DiscoveryPostFailed(e)));
-            return;
+        match module.discovery_client.queue_post(post_request).await {
+            Ok(QueuePostResponse::NoContent) => {}
+            Ok(QueuePostResponse::Forbidden) => {
+                let _ = response_tx.send(Err(Error::NotRegistered));
+                return;
+            }
+            Ok(_) => {
+                let _ = response_tx.send(Err(Error::DiscoveryPostFailed(anyhow::anyhow!(
+                    "unexpected queue_post status"
+                ))));
+                return;
+            }
+            Err(e) => {
+                let _ = response_tx.send(Err(Error::DiscoveryPostFailed(e)));
+                return;
+            }
         }
 
         let (callback_tx, callback_rx) = tokio::sync::oneshot::channel();

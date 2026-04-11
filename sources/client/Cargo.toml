@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+base64 = { workspace = true }
+pow_puzzle = { path = "../pow_puzzle" }
 serde = { workspace = true }
 validator = { workspace = true }
 oas3-gen-support = { workspace = true }

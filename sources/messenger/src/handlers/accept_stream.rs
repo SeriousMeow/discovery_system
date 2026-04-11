@@ -37,7 +37,9 @@ pub async fn handle(
         Ok(Ok((send, recv))) => {
             let stream_id = state.streams.register_session(send, recv).await;
             info!(%stream_id, %peer_id, "stream session registered (accept_stream)");
-            Ok(AcceptStreamResponseEnum::Ok(AcceptStreamResponse { stream_id }))
+            Ok(AcceptStreamResponseEnum::Ok(AcceptStreamResponse {
+                stream_id,
+            }))
         }
     }
 }

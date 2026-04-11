@@ -1,9 +1,11 @@
-use crate::api::Credentials;
-use crate::api::DiscoverySystemClient;
+use crate::api::{Credentials, DiscoverySystemClient};
 use anyhow::Result;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as B64;
 use iroh::endpoint::{Connection, ConnectionError, VarInt};
 use iroh::protocol::{ProtocolHandler, Router};
 use iroh::{Endpoint, EndpointId};
+use pow_puzzle::{PublicKey, StaticPuzzleSolution, public_key_hex_id};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, RwLock};
@@ -19,6 +21,7 @@ pub struct DiscoveryModule {
     pub endpoint: Endpoint,
     pub discovery_client: DiscoverySystemClient,
     pub pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
+    static_solution: StaticPuzzleSolution,
     _router: Router,
 }
 
@@ -27,6 +30,7 @@ impl DiscoveryModule {
         pending_connections: Arc<RwLock<HashMap<EndpointId, PendingConnection>>>,
         connections: Arc<RwLock<HashMap<EndpointId, Connection>>>,
         server_url: String,
+        static_solution: StaticPuzzleSolution,
     ) -> Result<Self> {
         let endpoint = Endpoint::bind().await?;
         let handler = Handler::new(pending_connections.clone(), connections);
@@ -41,6 +45,7 @@ impl DiscoveryModule {
             endpoint,
             discovery_client,
             pending_connections,
+            static_solution,
             _router: router,
         })
     }
@@ -60,9 +65,20 @@ impl DiscoveryModule {
         guard.contains_key(&id)
     }
 
+    #[must_use]
+    pub fn public_key_base64(&self) -> String {
+        B64.encode(self.static_solution.0)
+    }
+
+    #[must_use]
+    pub fn public_key_hex(&self) -> String {
+        public_key_hex_id(&PublicKey(self.static_solution.0))
+    }
+
+    #[must_use]
     pub fn get_credentials(&self) -> Credentials {
         Credentials {
-            id: self.endpoint.id().to_string(),
+            public_key: self.public_key_base64(),
         }
     }
 }

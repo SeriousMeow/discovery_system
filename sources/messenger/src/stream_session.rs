@@ -120,11 +120,7 @@ impl StreamSessionStore {
         }
     }
 
-    pub async fn register_session(
-        &self,
-        send: SendStream,
-        recv: RecvStream,
-    ) -> String {
+    pub async fn register_session(&self, send: SendStream, recv: RecvStream) -> String {
         let codec = LengthDelimitedCodec::new();
         let framed_write = FramedWrite::new(send, codec.clone());
         let framed_read = FramedRead::new(recv, codec);
@@ -159,7 +155,11 @@ impl StreamSessionStore {
         self.sessions.read().await.get(stream_id).cloned()
     }
 
-    pub async fn send_string(&self, stream_id: &str, message: &str) -> Result<(), StreamSessionError> {
+    pub async fn send_string(
+        &self,
+        stream_id: &str,
+        message: &str,
+    ) -> Result<(), StreamSessionError> {
         let session = self
             .get(stream_id)
             .await

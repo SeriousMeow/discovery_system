@@ -134,18 +134,51 @@ paths:
               schema:
                 $ref: "#/components/schemas/IsOnlineResponse"
 
+  /ids/self:
+    get:
+      operationId: ids_self
+      responses:
+        200:
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSelfResponse"
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
   /me/id:
     get:
       operationId: me_id
       responses:
         200:
-          description: Local iroh endpoint id for this messenger instance
+          description: Endpoint is bound; Iroh EndpointId is available
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MeIdResponse"
+                $ref: "#/components/schemas/IdSelfResponse"
         503:
-          description: Offline (no endpoint bound yet)
+          description: No endpoint id yet (offline or endpoint not bound)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /ids/discovery:
+    get:
+      operationId: ids_discovery
+      responses:
+        200:
+          description: Registered with Discovery; identity available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryIdentityResponse"
+        503:
+          description: Offline or not registered with Discovery
           content:
             application/json:
               schema:
@@ -383,6 +416,8 @@ components:
       properties:
         server_url:
           type: string
+        discovery_public_key:
+          type: string
 
     ConnectRequest:
       type: object
@@ -422,15 +457,29 @@ components:
         online:
           type: boolean
 
-    MeIdResponse:
+    IdSelfResponse:
       type: object
       additionalProperties: false
       required:
-        - id
+        - endpoint_id
       properties:
-        id:
+        endpoint_id:
           type: string
-          description: Iroh endpoint id (string form)
+          description: Iroh EndpointId (string form) from Handle; not Discovery registration id
+
+    DiscoveryIdentityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - public_key_base64
+        - public_key_hex
+      properties:
+        public_key_base64:
+          type: string
+          description: Same as credentials.public_key for Discovery HTTP APIs
+        public_key_hex:
+          type: string
+          description: Hex-encoded raw public key; matches Discovery server queue storage id
 
     ListIncomingConnectionsResponse:
       type: object

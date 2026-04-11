@@ -1,4 +1,4 @@
-use client::error::{OpenStreamError, AcceptStreamError};
+use client::error::{AcceptStreamError, OpenStreamError};
 use iroh::EndpointId;
 
 use crate::api::*;
@@ -57,12 +57,16 @@ pub fn map_drain_session_error(e: StreamSessionError) -> StreamDrainResponseEnum
         StreamSessionError::NotActive { detail } => StreamDrainResponseEnum::Conflict(ErrorBody {
             message: detail.into(),
         }),
-        StreamSessionError::Utf8Framing => StreamDrainResponseEnum::UnprocessableEntity(ErrorBody {
-            message: "invalid UTF-8 framing payload".into(),
-        }),
+        StreamSessionError::Utf8Framing => {
+            StreamDrainResponseEnum::UnprocessableEntity(ErrorBody {
+                message: "invalid UTF-8 framing payload".into(),
+            })
+        }
         StreamSessionError::QueueOverflow => StreamDrainResponseEnum::BadGateway(ErrorBody {
             message: "incoming message queue overflow".into(),
         }),
-        StreamSessionError::Io(msg) => StreamDrainResponseEnum::BadGateway(ErrorBody { message: msg }),
+        StreamSessionError::Io(msg) => {
+            StreamDrainResponseEnum::BadGateway(ErrorBody { message: msg })
+        }
     }
 }

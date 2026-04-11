@@ -32,6 +32,9 @@ pub async fn handle(
                 message: "already connected or connection in progress".into(),
             })
         }
+        Err(ConnectError::NotRegistered) => ConnectResponse::BadGateway(ErrorBody {
+            message: "discovery queue post rejected (sender not registered)".into(),
+        }),
         Err(ConnectError::DiscoveryPostFailed(e)) => ConnectResponse::BadGateway(ErrorBody {
             message: format!("failed to send discovery ticket to peer server: {}", e),
         }),

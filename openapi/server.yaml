@@ -14,18 +14,24 @@ components:
       type: string
       format: date-time
 
+    PublicKeyBase64:
+      type: string
+      description: |
+        Standard base64-encoded 32-byte public key. Identity is this key only (no separate id):
+        the static puzzle is leading zero bits on SHA256(SHA256(public_key)).
+
     Credentials:
       type: object
       additionalProperties: false
       required:
-        - id
+        - public_key
       properties:
-        id:
-          $ref: "#/components/schemas/Id"
+        public_key:
+          $ref: "#/components/schemas/PublicKeyBase64"
 
     DataItem:
       type: string
-          
+
     RegisterRequest:
       type: object
       additionalProperties: false
@@ -97,6 +103,8 @@ paths:
                 $ref: "#/components/schemas/RegisterResponse"
         401:
           description: Unauthorized
+        403:
+          description: Forbidden
 
   /queue/post:
     post:
@@ -112,6 +120,8 @@ paths:
           description: Ok
         401:
           description: Unauthorized
+        403:
+          description: Forbidden
         404:
           description: Not found
 
@@ -133,6 +143,7 @@ paths:
                 $ref: "#/components/schemas/QueueGetResponse"
         401:
           description: Unauthorized
+        403:
+          description: Forbidden
         404:
           description: Not found
-
