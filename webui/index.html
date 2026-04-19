@@ -18,10 +18,6 @@
             <input type="text" id="discovery-url" placeholder="http://127.0.0.1:8080" autocomplete="off" />
           </label>
         </div>
-        <p class="hint">
-          To reuse an existing Discovery identity, paste the puzzle public key as <strong>Base64</strong> (same as
-          <code>credentials.public_key</code>). Leave empty to generate a new key.
-        </p>
         <div class="row">
           <label class="grow">
             <span>Discovery public key when going online (optional, Base64)</span>
@@ -29,7 +25,6 @@
               type="text"
               id="discovery-public-key"
               class="mono"
-              placeholder="Base64 of 32-byte key — empty = new identity"
               autocomplete="off"
             />
           </label>
@@ -50,27 +45,15 @@
           <button type="button" id="btn-go-online" class="primary">Go online</button>
           <button type="button" id="btn-refresh-online">Refresh status</button>
         </div>
-        <p class="hint">
-          <strong>Iroh endpoint id</strong> (from this app’s Handle, via <code>GET /ids/self</code>) — not your
-          Discovery server registration id.
-        </p>
         <div class="row">
           <span>Iroh endpoint id:</span>
           <span class="mono" id="me-id">—</span>
-          <button type="button" id="btn-me-id">Fetch /ids/self</button>
+          <button type="button" id="btn-me-id">Fetch Iroh id</button>
         </div>
-        <p class="hint">
-          <strong>Discovery system id</strong> — static puzzle public key registered with the Discovery server
-          (<code>GET /ids/discovery</code>). Same identity as <code>credentials.public_key</code> in Discovery HTTP APIs.
-        </p>
         <div class="row">
           <span>Discovery public key (base64):</span>
           <span class="mono grow" id="discovery-id-b64">—</span>
-        </div>
-        <div class="row">
-          <span>Discovery id (hex, server queue key):</span>
-          <span class="mono grow" id="discovery-id-hex">—</span>
-          <button type="button" id="btn-discovery-id">Fetch /ids/discovery</button>
+          <button type="button" id="btn-discovery-id">Fetch discovery key</button>
         </div>
       </section>
 
@@ -78,8 +61,20 @@
         <h2 id="sec-conn">Connection (single peer)</h2>
         <div class="row">
           <label>
-            <span>Peer id</span>
+            <span>Peer Iroh endpoint id</span>
             <input type="text" id="peer-id" class="mono" placeholder="iroh endpoint id" autocomplete="off" />
+          </label>
+        </div>
+        <div class="row">
+          <label class="grow">
+            <span>Peer Discovery public key (Base64)</span>
+            <input
+              type="text"
+              id="peer-discovery-public-key"
+              class="mono"
+              placeholder="Base64 of peer Discovery public key"
+              autocomplete="off"
+            />
           </label>
         </div>
         <div class="row">
@@ -106,7 +101,7 @@
         <h2 id="sec-stream">Stream</h2>
         <div class="row">
           <label>
-            <span>Stream peer id (usually same as connection)</span>
+            <span>Stream peer Iroh endpoint id</span>
             <input type="text" id="stream-peer-id" class="mono" autocomplete="off" />
           </label>
         </div>
@@ -130,7 +125,7 @@
         <div class="row">
           <label class="inline">
             <input type="checkbox" id="poll-enabled" />
-            <span>Poll /stream_drain (750 ms)</span>
+            <span>Poll new messages</span>
           </label>
         </div>
         <div id="chat-log" aria-live="polite"></div>

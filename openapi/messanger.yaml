@@ -44,7 +44,7 @@ paths:
         204:
           description: Connected to peer
         400:
-          description: Invalid peer id
+          description: Invalid peer iroh id or discovery key
           content:
             application/json:
               schema:
@@ -423,12 +423,16 @@ components:
       type: object
       additionalProperties: false
       required:
-        - peer_id
+        - peer_iroh_id
+        - peer_discovery_public_key
         - timeout_ms
       properties:
-        peer_id:
+        peer_iroh_id:
           type: string
-          description: Iroh endpoint id (string form)
+          description: Peer Iroh endpoint id (string form), used for p2p connect state.
+        peer_discovery_public_key:
+          type: string
+          description: Peer Discovery public key (Base64, same value format as credentials.public_key).
         timeout_ms:
           type: integer
           format: int64
@@ -472,14 +476,10 @@ components:
       additionalProperties: false
       required:
         - public_key_base64
-        - public_key_hex
       properties:
         public_key_base64:
           type: string
           description: Same as credentials.public_key for Discovery HTTP APIs
-        public_key_hex:
-          type: string
-          description: Hex-encoded raw public key; matches Discovery server queue storage id
 
     ListIncomingConnectionsResponse:
       type: object

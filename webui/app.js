@@ -117,10 +117,6 @@
       res = await fetch(url, options);
     } catch (e) {
       let msg = "Network: " + (e && e.message ? e.message : String(e));
-      if (window.location.protocol === "file:") {
-        msg +=
-          " — If you opened this page via file://, the browser may block fetch() to http:// before any request is sent; serve webui/ over HTTP (see banner).";
-      }
       logDiag(msg, "err");
       throw new Error(msg);
     }
@@ -185,17 +181,11 @@
 
   async function fetchDiscoveryId() {
     const b64 = $("discovery-id-b64");
-    const hex = $("discovery-id-hex");
     try {
       const data = await apiCall("/ids/discovery", "GET");
-      const pk = data && data.public_key_base64;
-      const hx = data && data.public_key_hex;
-      b64.textContent = pk ? pk : "—";
-      hex.textContent = hx ? hx : "—";
-      if (!pk || !hx) logDiag("GET /ids/discovery: missing public_key fields", "err");
+      b64.textContent = data.public_key_base64;
     } catch (e) {
       b64.textContent = "—";
-      hex.textContent = "—";
     }
   }
 
@@ -221,13 +211,19 @@
 
   async function doConnect() {
     syncPeerFields();
-    const peer_id = $("peer-id").value.trim();
-    if (!peer_id) {
-      logDiag("Peer id required", "err");
+    const peer_iroh_id = $("peer-id").value.trim();
+    if (!peer_iroh_id) {
+      logDiag("Peer Iroh endpoint id required", "err");
+      return;
+    }
+    const peer_discovery_public_key = $("peer-discovery-public-key").value.trim();
+    if (!peer_discovery_public_key) {
+      logDiag("Peer Discovery public key (Base64) required", "err");
       return;
     }
     await apiCall("/connect", "POST", {
-      peer_id,
+      peer_iroh_id,
+      peer_discovery_public_key,
       timeout_ms: connTimeoutMs(),
     });
     chatSys("Connected (or no-op if already connected).");

@@ -27,12 +27,17 @@ impl Handle {
 
     pub async fn connect(
         &self,
-        peer_id: EndpointId,
+        peer_iroh_endpoint_id: EndpointId,
+        peer_discovery_public_key: String,
         timeout: Duration,
     ) -> Result<(), error::ConnectError> {
         use crate::worker::commands::connect::*;
 
-        let request = Request { peer_id, timeout };
+        let request = Request {
+            peer_iroh_endpoint_id,
+            peer_discovery_public_key,
+            timeout,
+        };
         let (command, rx) = Command::new(request);
 
         self.commands_sender.send(command.into()).await.unwrap();

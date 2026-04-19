@@ -2,8 +2,11 @@ use std::time::Duration;
 
 use crate::api::{QueuePostRequest, QueuePostRequestParams, QueuePostResponse};
 use crate::utils::rpc;
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as B64;
 use iroh::EndpointId;
 use iroh_tickets::endpoint::EndpointTicket;
+use pow_puzzle::{PublicKey, public_key_hex_id};
 use thiserror::Error;
 use tokio::time::timeout;
 
@@ -15,6 +18,8 @@ pub enum Error {
     AlreadyConnected,
     #[error("connection with peer is already in progress")]
     AlreadyConnecting,
+    #[error("invalid peer discovery public key: {0}")]
+    InvalidPeerDiscoveryKey(String),
     #[error("failed to send discovery ticket to peer server")]
     DiscoveryPostFailed(#[from] anyhow::Error),
     #[error("discovery queue post rejected (sender not registered)")]
@@ -28,7 +33,8 @@ pub enum Error {
 pub type Command = rpc::Command<Request, Response>;
 
 pub struct Request {
-    pub peer_id: EndpointId,
+    pub peer_iroh_endpoint_id: EndpointId,
+    pub peer_discovery_public_key: String,
     pub timeout: Duration,
 }
 
@@ -43,7 +49,8 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             return;
         };
 
-        let peer_id = command.request.peer_id;
+        let peer_id = command.request.peer_iroh_endpoint_id;
+        let peer_discovery_public_key = command.request.peer_discovery_public_key;
         let pending_timeout = command.request.timeout;
 
         if self.connections.read().unwrap().contains_key(&peer_id) {
@@ -56,12 +63,19 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             return;
         }
 
-        let my_ticket = EndpointTicket::from(module.endpoint.addr()).to_string();
+        let peer_discovery_public_key = match parse_discovery_public_key(&peer_discovery_public_key) {
+            Ok(key) => key,
+            Err(msg) => {
+                let _ = response_tx.send(Err(Error::InvalidPeerDiscoveryKey(msg)));
+                return;
+            }
+        };
 
+        let my_ticket = EndpointTicket::from(module.endpoint.addr()).to_string();
         let post_request = QueuePostRequestParams {
             body: QueuePostRequest {
                 credentials: module.get_credentials(),
-                recipient: peer_id.to_string(),
+                recipient: public_key_hex_id(&peer_discovery_public_key),
                 data: my_ticket.clone(),
             },
         };
@@ -106,4 +120,11 @@ impl rpc::Handler<Request, Response> for crate::worker::Worker {
             let _ = response_tx.send(response);
         });
     }
+}
+
+fn parse_discovery_public_key(s: &str) -> Result<PublicKey, String> {
+    let raw = B64
+        .decode(s.as_bytes())
+        .map_err(|e| format!("base64 decode: {e}"))?;
+    PublicKey::try_from(raw.as_slice()).map_err(|_| "base64 must decode to exactly 32 bytes".into())
 }

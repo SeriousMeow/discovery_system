@@ -9,6 +9,14 @@ pub fn parse_peer_id(s: &str) -> Result<EndpointId, anyhow::Error> {
         .map_err(|e| anyhow::anyhow!("invalid peer_id: {e}"))
 }
 
+pub fn parse_peer_discovery_public_key(s: &str) -> Result<String, anyhow::Error> {
+    let key = s.trim();
+    if key.is_empty() {
+        return Err(anyhow::anyhow!("invalid peer_discovery_public_key: empty"));
+    }
+    Ok(key.to_owned())
+}
+
 pub fn map_open_stream_error(e: OpenStreamError) -> OpenStreamResponseEnum {
     match e {
         OpenStreamError::NotConnected => OpenStreamResponseEnum::Conflict(ErrorBody {
