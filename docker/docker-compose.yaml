@@ -1,0 +1,143 @@
+services:
+  server1:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/sever.yaml
+    image: discovery-system/server:line
+    environment:
+      DISCOVERY_SERVER_HTTP_ADDR: 0.0.0.0:8080
+      DISCOVERY_SERVER_LISTEN_ADDR: 172.29.0.11:8081
+      DISCOVERY_SERVER_CONFIG_JSON: /app/server-config.json
+    volumes:
+      - ./server-config.json:/app/server-config.json:ro
+    ports:
+      - "18080:8080"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.11
+    command: ["sh", "-c", "sleep 0 && server"]
+
+  server2:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/sever.yaml
+    image: discovery-system/server:line
+    environment:
+      DISCOVERY_SERVER_HTTP_ADDR: 0.0.0.0:8080
+      DISCOVERY_SERVER_LISTEN_ADDR: 172.29.0.12:8081
+      DISCOVERY_SERVER_CONTACT_NODE: 172.29.0.11:8081
+      DISCOVERY_SERVER_CONFIG_JSON: /app/server-config.json
+    volumes:
+      - ./server-config.json:/app/server-config.json:ro
+    ports:
+      - "18081:8080"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.12
+    command: ["sh", "-c", "sleep 5 && server"]
+
+  server3:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/sever.yaml
+    image: discovery-system/server:line
+    environment:
+      DISCOVERY_SERVER_HTTP_ADDR: 0.0.0.0:8080
+      DISCOVERY_SERVER_LISTEN_ADDR: 172.29.0.13:8081
+      DISCOVERY_SERVER_CONTACT_NODE: 172.29.0.12:8081
+      DISCOVERY_SERVER_CONFIG_JSON: /app/server-config.json
+    volumes:
+      - ./server-config.json:/app/server-config.json:ro
+    ports:
+      - "18082:8080"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.13
+    command: ["sh", "-c", "sleep 10 && server"]
+
+  server4:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/sever.yaml
+    image: discovery-system/server:line
+    environment:
+      DISCOVERY_SERVER_HTTP_ADDR: 0.0.0.0:8080
+      DISCOVERY_SERVER_LISTEN_ADDR: 172.29.0.14:8081
+      DISCOVERY_SERVER_CONTACT_NODE: 172.29.0.13:8081
+      DISCOVERY_SERVER_CONFIG_JSON: /app/server-config.json
+    volumes:
+      - ./server-config.json:/app/server-config.json:ro
+    ports:
+      - "18083:8080"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.14
+    command: ["sh", "-c", "sleep 15 && server"]
+
+  server5:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/sever.yaml
+    image: discovery-system/server:line
+    environment:
+      DISCOVERY_SERVER_HTTP_ADDR: 0.0.0.0:8080
+      DISCOVERY_SERVER_LISTEN_ADDR: 172.29.0.15:8081
+      DISCOVERY_SERVER_CONTACT_NODE: 172.29.0.14:8081
+      DISCOVERY_SERVER_CONFIG_JSON: /app/server-config.json
+    volumes:
+      - ./server-config.json:/app/server-config.json:ro
+    ports:
+      - "18084:8080"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.15
+    command: ["sh", "-c", "sleep 20 && server"]
+
+  messenger1:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/messenger.Dockerfile
+    image: discovery-system/messenger:line
+    environment:
+      MESSENGER_HTTP_ADDR: 0.0.0.0:3030
+      MESSENGER_WEBUI_DIR: /app/webui
+    ports:
+      - "13030:3030"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.21
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    command: ["sh", "-c", "sleep 30 && messenger"]
+
+  messenger2:
+    build:
+      context: ..
+      dockerfile: docker/dockerfiles/messenger.Dockerfile
+    image: discovery-system/messenger:line
+    environment:
+      MESSENGER_HTTP_ADDR: 0.0.0.0:3030
+      MESSENGER_WEBUI_DIR: /app/webui
+    ports:
+      - "13031:3030"
+    networks:
+      ring_net:
+        ipv4_address: 172.29.0.22
+    depends_on:
+      - server1
+      - server2
+      - server3
+      - server4
+      - server5
+    command: ["sh", "-c", "sleep 30 && messenger"]
+
+networks:
+  ring_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24

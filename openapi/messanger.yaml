@@ -1,0 +1,585 @@
+openapi: 3.1.0
+info:
+  title: Messenger HTTP Wrapper
+  version: 1.0.0
+  description: |
+    API for the messenger
+
+paths:
+  /go_online:
+    post:
+      operationId: go_online
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoOnlineRequest"
+      responses:
+        204:
+          description: Discovery module started
+        400:
+          description: Invalid discovery server URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Already online
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /connect:
+    post:
+      operationId: connect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectRequest"
+      responses:
+        204:
+          description: Connected to peer
+        400:
+          description: Invalid peer iroh id or discovery key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Already connected or connection in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Discovery or transport failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        503:
+          description: Offline (not registered with discovery)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        504:
+          description: Connect timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /accept_connection:
+    post:
+      operationId: accept_connection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptConnectionRequest"
+      responses:
+        204:
+          description: Accepted incoming connection
+        400:
+          description: Invalid peer id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        404:
+          description: No matching pending incoming connection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Already connected or connection in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Transport failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        503:
+          description: Offline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        504:
+          description: Accept timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /is_online:
+    get:
+      operationId: is_online
+      responses:
+        200:
+          description: Current online state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IsOnlineResponse"
+
+  /ids/self:
+    get:
+      operationId: ids_self
+      responses:
+        200:
+          description: Ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSelfResponse"
+        503:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /me/id:
+    get:
+      operationId: me_id
+      responses:
+        200:
+          description: Endpoint is bound; Iroh EndpointId is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IdSelfResponse"
+        503:
+          description: No endpoint id yet (offline or endpoint not bound)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /ids/discovery:
+    get:
+      operationId: ids_discovery
+      responses:
+        200:
+          description: Registered with Discovery; identity available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscoveryIdentityResponse"
+        503:
+          description: Offline or not registered with Discovery
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /list_incoming_connections:
+    get:
+      operationId: list_incoming_connections
+      responses:
+        200:
+          description: Peers with pending incoming connections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListIncomingConnectionsResponse"
+
+  /list_connections:
+    get:
+      operationId: list_connections
+      responses:
+        200:
+          description: Peers with established connections
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListConnectionsResponse"
+
+  /open_stream:
+    post:
+      operationId: open_stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OpenStreamRequest"
+      responses:
+        200:
+          description: Outgoing stream opened; session id assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenStreamResponse"
+        400:
+          description: Invalid peer id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Invalid stream state (e.g. already closed or not ready)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Transport or iroh failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        504:
+          description: Open timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /accept_stream:
+    post:
+      operationId: accept_stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptStreamRequest"
+      responses:
+        200:
+          description: Incoming stream accepted; session id assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptStreamResponse"
+        400:
+          description: Invalid peer id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Invalid stream state (e.g. already closed or not ready)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Transport or iroh failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        504:
+          description: Accept timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /stream_send:
+    post:
+      operationId: stream_send
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreamSendRequest"
+      responses:
+        204:
+          description: Message sent on stream
+        404:
+          description: Unknown stream_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Invalid stream state (e.g. closed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        422:
+          description: Invalid UTF-8 framing payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Transport or iroh failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /stream_drain:
+    post:
+      operationId: stream_drain
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StreamDrainRequest"
+      responses:
+        200:
+          description: All queued incoming messages (queue cleared)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StreamDrainResponse"
+        404:
+          description: Unknown stream_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Invalid stream state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        422:
+          description: Invalid UTF-8 framing payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        502:
+          description: Transport or iroh failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        504:
+          description: Read timed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+  /stream/{stream_id}:
+    delete:
+      operationId: delete_stream
+      parameters:
+        - name: stream_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        204:
+          description: Stream session removed
+        404:
+          description: Unknown stream_id
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        409:
+          description: Invalid stream state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+
+components:
+  schemas:
+    ErrorBody:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+      properties:
+        message:
+          type: string
+
+    GoOnlineRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - server_url
+      properties:
+        server_url:
+          type: string
+        discovery_public_key:
+          type: string
+
+    ConnectRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_iroh_id
+        - peer_discovery_public_key
+        - timeout_ms
+      properties:
+        peer_iroh_id:
+          type: string
+          description: Peer Iroh endpoint id (string form), used for p2p connect state.
+        peer_discovery_public_key:
+          type: string
+          description: Peer Discovery public key (Base64, same value format as credentials.public_key).
+        timeout_ms:
+          type: integer
+          format: int64
+          minimum: 1
+
+    AcceptConnectionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_id
+        - timeout_ms
+      properties:
+        peer_id:
+          type: string
+        timeout_ms:
+          type: integer
+          format: int64
+          minimum: 1
+
+    IsOnlineResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - online
+      properties:
+        online:
+          type: boolean
+
+    IdSelfResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - endpoint_id
+      properties:
+        endpoint_id:
+          type: string
+          description: Iroh EndpointId (string form) from Handle; not Discovery registration id
+
+    DiscoveryIdentityResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - public_key_base64
+      properties:
+        public_key_base64:
+          type: string
+          description: Same as credentials.public_key for Discovery HTTP APIs
+
+    ListIncomingConnectionsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_ids
+      properties:
+        peer_ids:
+          type: array
+          items:
+            type: string
+
+    ListConnectionsResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_ids
+      properties:
+        peer_ids:
+          type: array
+          items:
+            type: string
+
+    OpenStreamRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_id
+        - timeout_ms
+      properties:
+        peer_id:
+          type: string
+          description: Iroh endpoint id (string form)
+        timeout_ms:
+          type: integer
+          format: int64
+          minimum: 1
+
+    OpenStreamResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - stream_id
+      properties:
+        stream_id:
+          type: string
+          description: Server-assigned session id for this stream
+
+    AcceptStreamRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - peer_id
+        - timeout_ms
+      properties:
+        peer_id:
+          type: string
+        timeout_ms:
+          type: integer
+          format: int64
+          minimum: 1
+
+    AcceptStreamResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - stream_id
+      properties:
+        stream_id:
+          type: string
+          description: Server-assigned session id for this stream
+
+    StreamSendRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - stream_id
+        - message
+      properties:
+        stream_id:
+          type: string
+        message:
+          type: string
+
+    StreamDrainRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - stream_id
+      properties:
+        stream_id:
+          type: string
+
+    StreamDrainResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - messages
+      properties:
+        messages:
+          type: array
+          items:
+            type: string

@@ -1,0 +1,23 @@
+[package]
+name = "messenger"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+client = { path = "../client/" }
+iroh = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+futures-util = { workspace = true }
+bytes = "1"
+uuid = { workspace = true }
+axum = { workspace = true }
+http = { workspace = true }
+serde = { workspace = true }
+anyhow = { workspace = true }
+validator = { workspace = true }
+oas3-gen-support = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tower-http = { workspace = true }
+

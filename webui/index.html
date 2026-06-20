@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Messenger — Web UI</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Messenger</h1>
+
+      <section aria-labelledby="sec-api">
+        <h2 id="sec-api">API</h2>
+        <div class="row">
+          <label>
+            <span>Discovery server URL</span>
+            <input type="text" id="discovery-url" placeholder="http://127.0.0.1:8080" autocomplete="off" />
+          </label>
+        </div>
+        <div class="row">
+          <label class="grow">
+            <span>Discovery public key when going online (optional, Base64)</span>
+            <input
+              type="text"
+              id="discovery-public-key"
+              class="mono"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            <span>Default timeout (ms)</span>
+            <input type="number" id="default-timeout" class="narrow" min="1" value="60000" />
+          </label>
+        </div>
+      </section>
+
+      <section aria-labelledby="sec-online">
+        <h2 id="sec-online">Online</h2>
+        <div class="row">
+          <span class="status-dot" id="online-dot" aria-hidden="true"></span>
+          <span id="online-label">Unknown</span>
+          <button type="button" id="btn-go-online" class="primary">Go online</button>
+          <button type="button" id="btn-refresh-online">Refresh status</button>
+        </div>
+        <div class="row">
+          <span>Iroh endpoint id:</span>
+          <span class="mono" id="me-id">—</span>
+          <button type="button" id="btn-me-id">Fetch Iroh id</button>
+        </div>
+        <div class="row">
+          <span>Discovery public key (base64):</span>
+          <span class="mono grow" id="discovery-id-b64">—</span>
+          <button type="button" id="btn-discovery-id">Fetch discovery key</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="sec-conn">
+        <h2 id="sec-conn">Connection (single peer)</h2>
+        <div class="row">
+          <label>
+            <span>Peer Iroh endpoint id</span>
+            <input type="text" id="peer-id" class="mono" placeholder="iroh endpoint id" autocomplete="off" />
+          </label>
+        </div>
+        <div class="row">
+          <label class="grow">
+            <span>Peer Discovery public key (Base64)</span>
+            <input
+              type="text"
+              id="peer-discovery-public-key"
+              class="mono"
+              placeholder="Base64 of peer Discovery public key"
+              autocomplete="off"
+            />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            <span>Timeout (ms)</span>
+            <input type="number" id="conn-timeout" class="narrow" min="1" />
+          </label>
+          <button type="button" id="btn-connect" class="primary">Connect</button>
+          <button type="button" id="btn-list-connections">List connections</button>
+          <button type="button" id="btn-list-incoming">List incoming</button>
+          <button type="button" id="btn-accept">Accept connection</button>
+        </div>
+        <div class="peer-list" id="connected-box" hidden>
+          <span>Connected peers:</span>
+          <ul id="connected-list"></ul>
+        </div>
+        <div class="peer-list" id="incoming-box" hidden>
+          <span>Pending peers:</span>
+          <ul id="incoming-list"></ul>
+        </div>
+      </section>
+
+      <section aria-labelledby="sec-stream">
+        <h2 id="sec-stream">Stream</h2>
+        <div class="row">
+          <label>
+            <span>Stream peer Iroh endpoint id</span>
+            <input type="text" id="stream-peer-id" class="mono" autocomplete="off" />
+          </label>
+        </div>
+        <div class="row">
+          <label>
+            <span>Timeout (ms)</span>
+            <input type="number" id="stream-timeout" class="narrow" min="1" />
+          </label>
+          <button type="button" id="btn-open-stream" class="primary">Open stream</button>
+          <button type="button" id="btn-accept-stream">Accept stream</button>
+        </div>
+        <div class="row">
+          <span>Active <code>stream_id</code>:</span>
+          <span class="mono" id="active-stream-id">—</span>
+          <button type="button" id="btn-close-stream" class="danger" disabled>Close stream</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="sec-chat">
+        <h2 id="sec-chat">Chat</h2>
+        <div class="row">
+          <label class="inline">
+            <input type="checkbox" id="poll-enabled" />
+            <span>Poll new messages</span>
+          </label>
+        </div>
+        <div id="chat-log" aria-live="polite"></div>
+        <div class="row">
+          <label style="flex: 1; min-width: 100%">
+            <span>Message</span>
+            <textarea id="out-message" rows="2" placeholder="Type and send…"></textarea>
+          </label>
+        </div>
+        <div class="row">
+          <button type="button" id="btn-send" class="primary" disabled>Send</button>
+        </div>
+      </section>
+
+      <section aria-labelledby="sec-diag">
+        <h2 id="sec-diag">Diagnostics</h2>
+        <div id="diagnostics"></div>
+      </section>
+    </main>
+    <script src="./app.js"></script>
+  </body>
+</html>

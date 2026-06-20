@@ -1,0 +1,12 @@
+# Rust output
+sources/debug
+sources/target
+
+# OpenAPI output
+sources/server/src/api/api_impl
+sources/client/src/api
+sources/messenger/src/api/api_impl
+
+# direnv
+.envrc
+.direnv

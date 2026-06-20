@@ -1,0 +1,30 @@
+{
+  "static_puzzle_difficulty_bits": 8,
+  "broadcast_buffer_size": 1024,
+  "new_messages_buffer_size": 1024,
+  "internal_messages_buffer_size": 1024,
+  "max_stored_messages": 1024,
+  "membership_intervals": {
+    "shuffle_passive_ms": 1000,
+    "fill_active_ms": 1000,
+    "sync_active_ms": 1000,
+    "poll_ms": 100,
+    "cleanup_ms": 1000
+  },
+  "broadcast_intervals": {
+    "poll_ms": 100,
+    "tick_ms": 100
+  },
+  "membership_options": {
+    "max_active_view_size": 4,
+    "max_passive_view_size": 24,
+    "shuffle_active_view_size": 2,
+    "shuffle_passive_view_size": 2,
+    "active_random_walk_len": 5,
+    "passive_random_walk_len": 2
+  },
+  "broadcast_option": {
+    "ihave_timeout_ms": 500,
+    "optimization_threshold": 2
+  }
+}
