@@ -176,6 +176,7 @@
     if (pk) body.discovery_public_key = pk;
     await apiCall("/go_online", "POST", body);
     await refreshOnline();
+    await fetchMeId();
     await fetchDiscoveryId();
   }
 
